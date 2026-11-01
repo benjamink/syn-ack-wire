@@ -1,15 +1,18 @@
-/* The handle's file, S:SynAckWire.prefs: read at the start for the title, written when the player dials. */
+/* The prefs file, S:SynAckWire.prefs: the handle, read at the start for the title and written when the player dials, and
+ * an optional SERVER= address, dialled instead of the built-in server (and kept when the handle is written). */
 #include <exec/types.h>
 #include <dos/dos.h>
 #include <dos/dosextens.h>
 #include <proto/dos.h>
 #include <proto/exec.h>
 #include <string.h>
+#include "../config.h"
 #include "../platform.h"
 #include "../common/game.h"
 #include "prefs.h"
 
 static char known[HANDLE_MAX + 1];       /* the handle in the file, as last read or written */
+static char known_server[SERVER_MAX + 1];   /* its server address, "" for none */
 
 /* No "insert volume" requester on the Workbench screen behind the game: a failed open just fails. */
 static APTR quiet_dos(void)
@@ -20,17 +23,18 @@ static APTR quiet_dos(void)
     return was;
 }
 
-/* The lobby's AppKey 0 (the player's name) is here the saved handle, from rx_ring[2]; any other key is none. */
+/* The lobby's AppKey 0 (the player's name) is here the saved handle, from rx_ring[2]; the lobby's own key (LOBBY_KEY, the
+ * server it picked) is here the SERVER= address, which main.c dials after "N:"; any other key is none. */
 unsigned char net_appkey(unsigned char key)
 {
-    char file[48];
+    char file[128];
     BPTR f;
     LONG got = 0;
     unsigned char n;
     APTR was;
 
     rx_ring[2] = 0;
-    if (key != 0)
+    if (key != 0 && key != LOBBY_KEY)
         return 0;
     was = quiet_dos();
     f = Open((UBYTE *)PREFS_FILE, MODE_OLDFILE);
@@ -39,10 +43,14 @@ unsigned char net_appkey(unsigned char key)
         Close(f);
     }
     ((struct Process *)FindTask(0))->pr_WindowPtr = was;
-    if (!f)
+    if (!f || got <= 0)
         return 0;
-    if (got <= 0)
-        return 0;
+    prefs_server(file, (unsigned char)got, known_server);
+    if (key != 0) {
+        n = (unsigned char)strlen(known_server);
+        memcpy(rx_ring + 2, known_server, n + 1);
+        return n;
+    }
     n = prefs_parse(file, (unsigned char)got, (char *)rx_ring + 2);
     memcpy(known, rx_ring + 2, n + 1);
     return n;
@@ -51,7 +59,7 @@ unsigned char net_appkey(unsigned char key)
 /* Remember the handle just played under. Best effort: a locked or full disk loses nothing but the memory. */
 void amiga_prefs_save(void)
 {
-    char file[24], name[9];
+    char file[16 + HANDLE_MAX + SERVER_MAX + 2], name[9];
     unsigned char i;
     BPTR f;
     APTR was;
@@ -61,7 +69,7 @@ void amiga_prefs_save(void)
     for (i = 0; i < edit_len && i < HANDLE_MAX; ++i)
         name[i] = edit[i];
     name[i] = 0;
-    i = prefs_format(name, file);
+    i = prefs_format(name, known_server, file);
     file[i] = 0;
     prefs_parse(file, i, name);         /* as the file would give it back */
     if (strcmp(name, known) == 0)

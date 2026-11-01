@@ -9,7 +9,8 @@
 # Workbench 1.3 floppy whose Startup-Sequence loads the FujiNet broker and runs the program, output to
 # SYNACK:log. Needs the fujinet-nio workspace (FUJINET_NIO_WS) built for Workbench 1.3:
 # scripts/amiga-artifacts wb13, and its fujibus-tcp-debug/fujinet-nio. Licensed media paths come from
-# AMIGA_ENV (default: the workspace's local/amiga.env). Ports 65501 (NIO) and 23499 (Amiberry's serial port)
+# AMIGA_ENV (default: the workspace's local/amiga.env). AMIGA_PREFS_SERVER=TCP://host:port/ writes that SERVER= line to the
+# guest's S:SynAckWire.prefs before the game starts (the client's own server setting). Ports 65501 (NIO) and 23499 (Amiberry's serial port)
 # must be free; the game server is yours, e.g. on 6599. Never kills by name: only recorded PIDs.
 set -u
 cd "$(dirname "$0")/.."
@@ -67,8 +68,8 @@ chmod u+w "$RUN"/rom/*
 cat > "$RUN/share/run.script" <<'GS'
 ; Kickstart 1.3 leaves a redirect in the program's arguments: the strict loader gets none, the game ignores it
 SYNACK:nio/fujinet-load-resident SYNACK:nio/fujinet-nio.device fujinet-nio.device
-SYNACK:game >SYNACK:log
 GS
+echo "SYNACK:game >SYNACK:log" >> "$RUN/share/run.script"
 cp "$AMIGA_WB13_ADF_WORKBENCH" "$RUN/wb13.adf" && chmod u+w "$RUN/wb13.adf"
 xdftool "$RUN/wb13.adf" read s/Startup-Sequence "$RUN/startup.orig" >/dev/null || die "xdftool could not read the floppy"
 python3 - "$RUN" <<'PY' || exit 1
@@ -78,6 +79,10 @@ s = open(run + "/startup.orig", "rb").read().decode("latin1")
 cut = s.index("Failat 11")
 open(run + "/startup.new", "wb").write((s[:cut] + "Path RAM: C: SYS:System S: SYS:Prefs ADD\nExecute SYNACK:run.script\n").encode("latin1"))
 PY
+if [ -n "${AMIGA_PREFS_SERVER:-}" ]; then
+    printf 'SERVER=%s\n' "$AMIGA_PREFS_SERVER" > "$RUN/prefs.new"
+    xdftool "$RUN/wb13.adf" write "$RUN/prefs.new" s/SynAckWire.prefs >/dev/null || die "xdftool could not write the prefs"
+fi
 xdftool "$RUN/wb13.adf" delete s/Startup-Sequence >/dev/null && xdftool "$RUN/wb13.adf" write "$RUN/startup.new" s/Startup-Sequence >/dev/null || die "xdftool could not write the floppy"
 
 # NIO config: the workspace's shape, our port
