@@ -6,6 +6,8 @@ struct Window;
 extern struct Window *amiga_win;        /* the game window; NULL until start.c has opened it */
 
 void amiga_present(void);               /* draw what changed since the last call */
+unsigned char amiga_display_open(void); /* the screen and window; 0 on failure, with nothing left open */
+void amiga_display_close(void);         /* close the window then the screen, whichever opened */
 unsigned char amiga_input_open(void);   /* console.device and the vblank counter; 0 on failure */
 void amiga_input_close(void);           /* undo it, safe if never opened */
 
