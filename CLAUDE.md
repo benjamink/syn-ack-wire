@@ -47,6 +47,7 @@ cd client && tools/run-adam.sh build/adam/syn-ack-wire-adam.ddp   # adamcore (EM
 cd client && make h89-disk H89SYS=<CP/M 2.2.04 H17 disk>      # build/h89/syn-ack-wire-h89.h8d (z88dk's zcc, cpmtools)
 cd client && make intv                                       # build/intv/syn-ack-wire-intv.rom (IntyBASIC 1.5 from IB_SRC)
 cd client && tools/run-intv.sh build/intv/syn-ack-wire-intv.rom SCEN   # jzIntv headless (intvsim.py) + FujiNet-PC on BoIP 9980+n
+cd client && make build/amiga/dial && tools/run-amiga.sh build/amiga/dial   # stock A500 (Kickstart 1.3) in Amiberry + FujiNet NIO on 65501/23499; --stop ends it
 cmake -S desktop -B desktop/build && cmake --build desktop/build   # desktop/build/syn-ack-wire (SDL3)
 make -C docs                                                 # rulebook and manuals (pdflatex)
 client/tools/capture.sh                                      # redo the staged captures (atari800 + FujiNet-PC)

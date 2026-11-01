@@ -631,6 +631,28 @@ pc-h89: $(HDRS) src/h89/screens.h
 	    -o build/pc/pc-h89 \
 	    src/common/main.c src/common/game.c src/common/proto.c src/h89/display_text.c test/autoplay.c test/pc_harness.c
 
+# --- Amiga (stock A500, Kickstart/Workbench 1.3): the common code with src/amiga/, and fujinet-nio-lib (a prebuilt
+# build/fujinet-nio-amiga.a in the fujinet-nio workspace, read only: make -C $(FUJINET_NIO_LIB) amiga). nix13, not
+# clib2: clib2's start-up opens utility.library, which Kickstart 1.3 doesn't have. tools/run-amiga.sh runs a program
+# on an emulated A500 against a FujiNet NIO process, all on spare ports.
+AMIGA_B         = build/amiga
+AMIGA_BIN      ?= /opt/amiga/bin
+FUJINET_NIO_WS ?= $(HOME)/dev/fujinet-nio-workspace
+FUJINET_NIO_LIB ?= $(FUJINET_NIO_WS)/repos/fujinet-nio-lib
+AMIGA_CC        = $(AMIGA_BIN)/m68k-amigaos-gcc
+AMIGA_FLAGS     = -Os -Wall -mcpu=68000 -msoft-float -mcrt=nix13 -funsigned-char -D__fastcall__= -D__KICK13__ \
+                  -I$(FUJINET_NIO_LIB)/include -I$(FUJINET_NIO_WS)/repos/fujinet-nio-driver/amiga/include
+AMIGA_NIOLIB    = $(FUJINET_NIO_LIB)/build/fujinet-nio-amiga.a
+
+$(AMIGA_NIOLIB):
+	@echo "$@ is missing: build it with  make -C $(FUJINET_NIO_LIB) amiga  (or set FUJINET_NIO_LIB)" >&2; false
+
+$(AMIGA_B):
+	mkdir -p $@
+
+$(AMIGA_B)/dial: test/amiga/dial.c $(AMIGA_NIOLIB) | $(AMIGA_B)
+	$(AMIGA_CC) $(AMIGA_FLAGS) test/amiga/dial.c $(AMIGA_NIOLIB) -o $@
+
 clean:
 	rm -rf build
 
