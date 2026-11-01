@@ -668,6 +668,14 @@ $(AMIGA_B)/synack-amiga-auto: $(AMIGASRC) test/autoplay.c test/amiga_dump.c $(HD
 	@echo "$@: $$(stat -c %s $@) bytes"
 amiga-test: $(AMIGA_B)/synack-amiga-auto
 
+# the Amiga client's look: the mockup generator is the source of the palette (src/amiga/palette.h), and draws the PNGs
+src/amiga/palette.h: tools/amiga_mock.py ../theme/theme.toml
+	python3 tools/amiga_mock.py --header > $@
+amiga-mock: | $(AMIGA_B)
+	mkdir -p $(AMIGA_B)/mock && python3 tools/amiga_mock.py src/nes/font.txt $(AMIGA_B)/mock
+test-amiga-mock:
+	python3 -m unittest tools/test_amiga_mock.py
+
 test-amiga-net: test/amiga_net_test.c src/amiga/net_fn.c src/platform.h
 	mkdir -p build/test
 	gcc -g -std=gnu99 -Wall -Wno-main -funsigned-char -D__fastcall__= -Itest/amiga_fake -o build/test/amiga_net_test \
@@ -701,6 +709,6 @@ test-amiga-prefs: test/amiga_prefs_test.c src/amiga/prefs.c src/amiga/prefs.h
 clean:
 	rm -rf build
 
-.PHONY: FORCE all atr atrtest atari-nio test-atari-nio test-atari-nio-6502 test pc pc-apple2 pc-msdos pc-coco pc-nes pc-adam pc-h89 apple2_text apple2_text-po msdos msdos-img msdos-test msdos-wiremon coco coco-dsk coco-auto nes nestest nes-auto h89 h89-disk h89-wiremon adam adamtest adam-auto intv intvtest intv-auto test-amiga-net test-amiga-keys test-amiga-present test-amiga-sound test-amiga-prefs amiga amiga-test clean
+.PHONY: FORCE all atr atrtest atari-nio test-atari-nio test-atari-nio-6502 test pc pc-apple2 pc-msdos pc-coco pc-nes pc-adam pc-h89 apple2_text apple2_text-po msdos msdos-img msdos-test msdos-wiremon coco coco-dsk coco-auto nes nestest nes-auto h89 h89-disk h89-wiremon adam adamtest adam-auto intv intvtest intv-auto test-amiga-net test-amiga-keys test-amiga-present test-amiga-sound test-amiga-prefs amiga amiga-test test-amiga-mock amiga-mock clean
 .PRECIOUS: $(B)/%.s $(B)/%.o $(A2)/%.s $(A2)/%.o $(COCO)/%.o $(NES)/%.s $(NES)/%.o $(ADAM)/%.o
 .DELETE_ON_ERROR:

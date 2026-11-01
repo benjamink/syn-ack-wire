@@ -72,6 +72,7 @@ The 8-bit side. The server enforces every rule; the client draws what it is told
 | `lib/fujinet-lib/` | fujinet-lib, a pinned copy (version and checksum in its README) |
 | `test/amiga_*_test.c`, `amiga_fake/` | Host tests for the Amiga layers (`make test-amiga-net test-amiga-keys test-amiga-present test-amiga-sound test-amiga-prefs`), the network one against a scripted fake of fujinet-nio-lib |
 | `test/amiga_accept.sh`, `amiga_server.py` | A whole autoplay game on the emulated A500 (`NTSC=1`, `CUT=1`); the scratch server says GAME OVER in its log |
+| `tools/amiga_mock.py`, `tools/test_amiga_mock.py` | The Amiga look drawn as PNGs at the real size (PAL and NTSC; `make amiga-mock`) and its 32-colour palette: `--header` writes `src/amiga/palette.h` (**generated**) |
 | `test/amiga/dial.c`, `test/amiga_rig_selfcheck.sh`, `tools/run-amiga.sh`, `amiga_guest.py` | The run rig: a stock A500 (Kickstart 1.3) in Amiberry against FujiNet NIO, and the check that it works |
 | `test/wiremon.c` | Protocol monitor; proves the network layer before any game screens exist |
 | `test/autoplay.c` | Test build that presses keys itself and BRKs for screen dumps |
