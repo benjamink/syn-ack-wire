@@ -16,7 +16,10 @@ void gfx_frame(const struct rect *r, unsigned char pen);                 /* a 1-
 void gfx_bevel(const struct rect *r, unsigned char fill, unsigned char hi, unsigned char lo);
 void gfx_text(short x, short y, const char *s, unsigned char n, unsigned char pen, unsigned char bg);   /* y: the glyph top */
 void gfx_text_right(short right, short y, const char *s, unsigned char n, unsigned char pen, unsigned char bg);
+void gfx_glyph(short x, short y, unsigned char ch, unsigned char scale, unsigned char pen);   /* a Topaz glyph, each pixel scale x scale */
 void gfx_hatch(const struct rect *r, unsigned char pen_a, unsigned char pen_b);   /* the Black ICE armour */
+unsigned char gfx_save(const struct rect *r);   /* copy that part of the screen aside (chip RAM); 0 if there is no memory for it */
+void gfx_restore(void);                 /* put the saved part back and free it */
 void gfx_dim(const struct rect *r, unsigned char pen);                   /* a checkerboard of pen over what is there */
 
 #endif

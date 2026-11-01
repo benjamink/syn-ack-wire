@@ -140,22 +140,95 @@ static void test_height_clamps(void)
     layout_make(&l, 300);
     CHECK(!l.ntsc && l.height == 256);
 }
-static void test_buttons_empty_until_filled(void)
+static void test_title_buttons_in_one_row_above_the_prompt(void)
 {
-    struct layout l;
-    layout_make(&l, 256);
-    CHECK(layout_btn_at(&l, 160, 100) == -1);                           /* nothing there: a click finds no button */
-    l.btn[BTN_BUY].x = 10; l.btn[BTN_BUY].y = 20; l.btn[BTN_BUY].w = 30; l.btn[BTN_BUY].h = 16;
-    CHECK(layout_btn_at(&l, 10, 20) == BTN_BUY);
-    CHECK(layout_btn_at(&l, 39, 35) == BTN_BUY);
-    CHECK(layout_btn_at(&l, 40, 35) == -1);
+    static const unsigned short heights[2] = { 256, 200 };
+    int h, a, b;
+    for (h = 0; h < 2; ++h) {
+        struct layout l;
+        layout_make(&l, heights[h]);
+        for (a = BTN_JACK; a <= BTN_QUIT; ++a) {
+            CHECK(l.btn[a].w > 0 && l.btn[a].x >= 0 && l.btn[a].x + l.btn[a].w <= l.width);
+            CHECK(l.btn[a].y + l.btn[a].h <= l.prompt.y);               /* NTSC: not under the strip */
+            CHECK(l.btn[a].y == l.btn[BTN_JACK].y);
+            for (b = BTN_JACK; b <= BTN_QUIT; ++b)
+                if (b != a)
+                    CHECK(!(l.btn[a].x < l.btn[b].x + l.btn[b].w && l.btn[b].x < l.btn[a].x + l.btn[a].w));
+        }
+        CHECK(layout_btn_in(&l, l.btn[BTN_QUIT].x, l.btn[BTN_QUIT].y, BTN_JACK, BTN_QUIT) == BTN_QUIT);
+        CHECK(layout_btn_in(&l, l.btn[BTN_QUIT].x, l.btn[BTN_QUIT].y, BTN_BUY, BTN_SEAT6) != BTN_QUIT);   /* a context sees only its own */
+        CHECK(layout_btn_at(&l, 0, 0) == -1);
+    }
+}
+static void test_log_holds_three_lines_and_clears_the_rest(void)
+{
+    static const unsigned short heights[2] = { 256, 200 };
+    int h, i;
+    for (h = 0; h < 2; ++h) {
+        struct layout l;
+        layout_make(&l, heights[h]);
+        CHECK(l.log.h >= 24);                                   /* a move's spike, spread and three buys */
+        CHECK(l.log.y + l.log.h <= l.prompt.y);
+        for (i = 0; i < l.seat_cards; ++i)
+            CHECK(l.seat[i].y + l.seat[i].h <= l.log.y);
+        CHECK(l.grid.y + l.grid.h <= l.seat[0].y);
+        CHECK(l.kit_panel.y + l.kit_panel.h <= l.seat[0].y);
+        CHECK(l.kit_chip[RULE_KITSIZE - 1].y + l.kit_chip[RULE_KITSIZE - 1].h <= l.kit_panel.y + l.kit_panel.h);
+    }
+}
+static int within(const struct rect *in, const struct rect *out)
+{
+    return in->x >= out->x && in->y >= out->y && in->x + in->w <= out->x + out->w && in->y + in->h <= out->y + out->h;
+}
+static int apart(const struct rect *a, const struct rect *b)
+{
+    return a->x + a->w <= b->x || b->x + b->w <= a->x || a->y + a->h <= b->y || b->y + b->h <= a->y;
+}
+static void test_dialog_fits_above_prompt(void)
+{
+    static const unsigned short heights[2] = { 256, 200 };
+    int h;
+    for (h = 0; h < 2; ++h) {
+        struct layout l;
+        layout_make(&l, heights[h]);
+        CHECK(l.dlg.y >= l.header.y + l.header.h && l.dlg.y + l.dlg.h <= l.prompt.y);
+        CHECK(l.dlg.x >= 0 && l.dlg.x + l.dlg.w <= l.width);
+        CHECK(within(&l.dlg_small, &l.dlg));
+        CHECK(l.ask.x >= 0 && l.ask.x + l.ask.w <= l.width && l.ask.y + l.ask.h <= l.prompt.y);
+        CHECK(l.dlg.w == 228 && l.dlg.h == (h ? 176 : 190));            /* the mockups' windows */
+    }
+}
+static void test_buttons_inside_dialog_and_disjoint(void)
+{
+    static const unsigned short heights[2] = { 256, 200 };
+    int h, a, b, i;
+    for (h = 0; h < 2; ++h) {
+        struct layout l;
+        layout_make(&l, heights[h]);
+        for (a = BTN_BUY; a <= BTN_NULLROUTE; ++a)
+            CHECK(within(&l.btn[a], &l.dlg));
+        for (a = BTN_OK; a <= BTN_SEAT6; ++a)
+            CHECK(within(&l.btn[a], &l.dlg_small));
+        CHECK(within(&l.btn[BTN_YES], &l.ask) && within(&l.btn[BTN_NO], &l.ask));
+        for (a = BTN_BUY; a <= BTN_SEAT6; ++a) {
+            CHECK(l.btn[a].w > 0 && l.btn[a].h > 0);
+            for (b = a + 1; b <= BTN_SEAT6; ++b)
+                CHECK(apart(&l.btn[a], &l.btn[b]));                     /* one click, one button */
+        }
+        for (i = 0; i < NSYN; ++i) {
+            CHECK(within(&l.dlg_row[i], &l.dlg));
+            CHECK(i == 0 || apart(&l.dlg_row[i - 1], &l.dlg_row[i]));
+            CHECK(apart(&l.dlg_row[i], &l.btn[BTN_BUY]) && apart(&l.dlg_row[i], &l.btn[BTN_NULLROUTE]));
+        }
+    }
 }
 
 int main(void)
 {
     RUN(test_every_rect_within_screen); RUN(test_no_overlap_between_panels); RUN(test_node_roundtrip);
     RUN(test_node_borders_half_open); RUN(test_gaps_are_not_nodes); RUN(test_syn_and_kit_hits_roundtrip);
-    RUN(test_ntsc_shows_me_and_mover); RUN(test_height_clamps); RUN(test_buttons_empty_until_filled);
+    RUN(test_ntsc_shows_me_and_mover); RUN(test_height_clamps); RUN(test_title_buttons_in_one_row_above_the_prompt);
+    RUN(test_log_holds_three_lines_and_clears_the_rest); RUN(test_dialog_fits_above_prompt); RUN(test_buttons_inside_dialog_and_disjoint);
     printf("%d tests, %d failures\n", ran, failures);
     return failures != 0;
 }

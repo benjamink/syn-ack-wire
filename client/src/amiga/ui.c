@@ -7,12 +7,22 @@ static unsigned char count;             /* the hivejack stepper */
 static unsigned char sold;              /* what the first step settled on */
 static unsigned char dirty;
 static unsigned char title, yesno;
+static unsigned char last_press, have_press;
 
 void ui_title_mode(unsigned char on) { title = on; }
 void ui_ask_yes_no(unsigned char on) { yesno = on; }
 void ui_reset(void) { count = 0; sold = 0; dirty = 1; }
 unsigned char ui_dirty(void) { unsigned char d = dirty; dirty = 0; return d; }
 unsigned char ui_count(void) { return count; }
+
+unsigned char ui_press_ok(unsigned char now, unsigned char queued, unsigned char ring)
+{
+    if (queued >= ring / 2)
+        return 0;
+    return !have_press || (unsigned char)(now - last_press) >= UI_PRESS_GAP;
+}
+void ui_press_taken(unsigned char now) { last_press = now; have_press = 1; }
+void ui_press_forget(void) { have_press = 0; }
 
 static unsigned char one(unsigned char *keys, unsigned char k) { keys[0] = k; return 1; }
 
@@ -78,7 +88,7 @@ static unsigned char title_click(const struct layout *l, short x, short y, unsig
 {
     signed char b;
     if (button == UI_RIGHT) return one(keys, K_ESC);
-    b = layout_btn_at(l, x, y);
+    b = layout_btn_in(l, x, y, BTN_JACK, BTN_QUIT);
     switch (b) {
     case BTN_JACK:  return edit_len ? one(keys, K_RETURN) : 0;
     case BTN_HINTS: return one(keys, K_OPTION);

@@ -4,6 +4,7 @@
   amiga_guest.py shot ABSOLUTE_PNG        a screenshot (Amiberry wants an absolute path)
   amiga_guest.py type TEXT                keys, with {return}, {ramiga+e} ... tokens (workspace keyboard.py)
   amiga_guest.py wait FILE TEXT SECONDS   0 once FILE (a file the guest writes) contains TEXT, 1 on timeout
+  amiga_guest.py click X Y [right]        move the mouse to the guest screen pixel (X, Y) and press and release a button
 """
 import os, sys, time
 
@@ -27,6 +28,16 @@ def type_(text):
     _kb().type_text(text, delay=0.08)
 
 
+def click(x, y, right=False):
+    """Amiberry's SEND_MOUSE_ABS <x> <y> <buttons>: the position, then the button down, then up."""
+    from amiga_emulator import ipc
+    sock = ipc.find_socket()
+    button = "2" if right else "1"
+    for state in ("0", button, "0"):
+        ipc.request(sock, "SEND_MOUSE_ABS", str(x), str(y), state)
+        time.sleep(0.15)
+
+
 def wait_for(path, text, timeout):
     end = time.time() + timeout
     while time.time() < end:
@@ -45,6 +56,8 @@ if __name__ == "__main__":
         shot(a[1])
     elif a[:1] == ["type"] and len(a) == 2:
         type_(a[1])
+    elif a[:1] == ["click"] and len(a) in (3, 4):
+        click(int(a[1]), int(a[2]), len(a) == 4)
     elif a[:1] == ["wait"] and len(a) == 4:
         sys.exit(0 if wait_for(a[1], a[2], float(a[3])) else 1)
     else:

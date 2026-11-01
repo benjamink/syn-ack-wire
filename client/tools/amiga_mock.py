@@ -262,20 +262,20 @@ def draw_side(cv, buy=False):
 def seat_cards(cv):
     for i, (nm, cash, coins, kind) in enumerate(SEATS):
         x = 4 + (i % 3) * 105
-        y = 161 + (i // 3) * 33
+        y = 161 + (i // 3) * 31
         mine = kind == "me"
         turn = i == 0
-        cv.bevel(x, y, 102, 31, "bg1", "amber" if turn else "edge", "bg0")
-        cv.text(x + 4, y + 3, (">" if mine else "*" if kind == "bot" else " ") + nm, "white" if turn else "text")
-        cv.text(x + 4, y + 12, YEN + str(cash), "amber")
+        cv.bevel(x, y, 102, 29, "bg1", "amber" if turn else "edge", "bg0")
+        cv.text(x + 4, y + 2, (">" if mine else "*" if kind == "bot" else " ") + nm, "white" if turn else "text")
+        cv.text(x + 4, y + 11, YEN + str(cash), "amber")
         for j, (k, _) in enumerate(SYN):
             n = coins[j]
-            cv.text(x + 4 + j * 13, y + 21, str(n) if n else ".", k if n else "dim")
+            cv.text(x + 4 + j * 13, y + 20, str(n) if n else ".", k if n else "dim")
 
 
-def prompt_strip(cv, line, secs=42, total=60, log=("[+] NULLPTR SPIKES H4", "[*] BRATVA HIVE SPREADS: 9 NODES")):
-    cv.rect(0, 228, W, 28, "bg0")
-    cv.text(6, 229, log[0], "dim"); cv.text(6, 237, log[1], "text")
+def prompt_strip(cv, line, secs=42, total=60, log=("[+] NULLPTR SPIKES H4", "[*] BRATVA HIVE SPREADS: 9 NODES", "[$] NULLPTR BUYS 2 BRATVA")):
+    cv.rect(0, 222, W, 34, "bg0")
+    cv.text(6, 222, log[0], "dim"); cv.text(6, 230, log[1], "dim"); cv.text(6, 238, log[2], "text")
     cv.bevel(0, 246, W, 10, "bg2", "edge", "bg0")
     cv.text(6, 247, line, "white")
     cv.rect(W - 92, 248, 64, 6, "bg0"); cv.rect(W - 91, 249, int(62 * secs / total), 4, "green" if secs > 15 else "red")
@@ -412,7 +412,7 @@ def menu():
 def draw_side_n(cv):
     x0 = GX + 8 + 12 * CW + 12
     w = W - x0 - 4
-    cv.bevel(x0, 12, w, 76, "bg1", "edge", "bg0")
+    cv.bevel(x0, 12, w, 75, "bg1", "edge", "bg0")
     cv.text(x0 + 4, 14, "SYNDICATES", "cyan")
     for i, (k, nm) in enumerate(SYN):
         y = 24 + i * 9
@@ -420,11 +420,11 @@ def draw_side_n(cv):
         cv.text(x0 + 12, y, nm, "text")
         sz = SIZES[k]
         cv.text(x0 + w - 2 - 16, y, str(sz).rjust(2), "steel" if sz >= 11 else "white")
-    cv.bevel(x0, 90, w, 50, "bg1", "edge", "bg0")
-    cv.text(x0 + 4, 92, "EXPLOIT KIT", "cyan")
+    cv.bevel(x0, 88, w, 47, "bg1", "edge", "bg0")
+    cv.text(x0 + 4, 90, "EXPLOIT KIT", "cyan")
     for n, (c, r) in enumerate(KIT):
         cx = x0 + 5 + (n % 2) * 47
-        cy = 102 + (n // 2) * 12
+        cy = 99 + (n // 2) * 12
         cv.bevel(cx, cy, 44, 11, "bg2", "edgehi", "bg0")
         cv.text(cx + 3, cy + 2, str(n + 1), "cyan")
         cv.text(cx + 14, cy + 2, "ABCDEFGHIJKL"[c] + str(r), "white")
@@ -432,26 +432,26 @@ def draw_side_n(cv):
 
 def seat_cards_n(cv):
     """you, the seat to move, and the others as a three-line list (the arrows scroll it)"""
-    y = 142
+    y = 137
     for x, i in ((4, 0), (108, 1)):
         nm, cash, coins, kind = SEATS[i]
-        cv.bevel(x, y, 102, 30, "bg1", "amber" if i == 1 else "edge", "bg0")
-        cv.text(x + 4, y + 3, (">" if kind == "me" else "*" if kind == "bot" else " ") + nm, "white" if i == 1 else "text")
-        cv.text(x + 4, y + 12, YEN + str(cash), "amber")
+        cv.bevel(x, y, 102, 28, "bg1", "amber" if i == 1 else "edge", "bg0")
+        cv.text(x + 4, y + 2, (">" if kind == "me" else "*" if kind == "bot" else " ") + nm, "white" if i == 1 else "text")
+        cv.text(x + 4, y + 11, YEN + str(cash), "amber")
         for j, (k, _) in enumerate(SYN):
             n = coins[j]
-            cv.text(x + 4 + j * 13, y + 21, str(n) if n else ".", k if n else "dim")
-    cv.bevel(212, y, 104, 30, "bg1", "edge", "bg0")
+            cv.text(x + 4 + j * 13, y + 20, str(n) if n else ".", k if n else "dim")
+    cv.bevel(212, y, 104, 28, "bg1", "edge", "bg0")
     for j, i in enumerate((2, 3, 4)):
         nm, cash, _, kind = SEATS[i]
-        cv.text(216, y + 2 + j * 9, ("*" if kind == "bot" else " ") + nm[:5] + str(cash).rjust(5), "text")
+        cv.text(216, y + 2 + j * 8, ("*" if kind == "bot" else " ") + nm[:5] + str(cash).rjust(5), "text")
     cv.rect(304, y + 2, 9, 12, "bg2"); cv.text(305, y + 4, "^", "white")
-    cv.rect(304, y + 16, 9, 12, "bg2"); cv.text(305, y + 18, "v", "white")
+    cv.rect(304, y + 15, 9, 12, "bg2"); cv.text(305, y + 17, "v", "white")
 
 
-def prompt_strip_n(cv, line, secs=42, total=60, log=("[+] NULLPTR SPIKES H4", "[*] BRATVA HIVE SPREADS: 9 NODES")):
-    cv.rect(0, 172, W, 28, "bg0")
-    cv.text(6, 174, log[0], "dim"); cv.text(6, 182, log[1], "text")
+def prompt_strip_n(cv, line, secs=42, total=60, log=("[+] NULLPTR SPIKES H4", "[*] BRATVA HIVE SPREADS: 9 NODES", "[$] NULLPTR BUYS 2 BRATVA")):
+    cv.rect(0, 165, W, 35, "bg0")
+    cv.text(6, 165, log[0], "dim"); cv.text(6, 173, log[1], "dim"); cv.text(6, 181, log[2], "text")
     cv.bevel(0, 190, W, 10, "bg2", "edge", "bg0")
     cv.text(6, 191, line, "white")
     cv.rect(W - 92, 192, 64, 6, "bg0"); cv.rect(W - 91, 193, int(62 * secs / total), 4, "green" if secs > 15 else "red")
@@ -461,7 +461,7 @@ def prompt_strip_n(cv, line, secs=42, total=60, log=("[+] NULLPTR SPIKES H4", "[
 def playfield_ntsc():
     global H, GY, CH
     old = (H, GY, CH)
-    H, GY, CH = 200, 21, 13
+    H, GY, CH = 200, 21, 12
     try:
         cv = Canvas()
         titlebar(cv, "SYN-ACK WIRE", "NEO-KANSAI-1")
@@ -479,7 +479,7 @@ def playfield_ntsc():
 def buy_ntsc():
     global H, GY, CH
     old = (H, GY, CH)
-    H, GY, CH = 200, 21, 13
+    H, GY, CH = 200, 21, 12
     try:
         cv = playfield_ntsc()
         for y in range(11, H):

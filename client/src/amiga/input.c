@@ -15,6 +15,8 @@
 #include "../platform.h"
 #include "amiga.h"
 #include "keys.h"
+#include "gfx.h"
+#include "ui.h"
 
 #define RING 32
 
@@ -89,6 +91,38 @@ static void push(unsigned char k)
     }
 }
 
+/* A mouse press is the keys the keyboard would type for the widget under it (ui.c). One press is taken at a time: the
+ * second of a double click within a few ticks is dropped (ui_press_ok), and so is any press while the key ring is half
+ * full, so a held or hammered button never queues a flood of keys that the game then replays. */
+void amiga_click(unsigned char button, short x, short y)
+{
+    unsigned char keys[UI_KEYS_MAX], n, i;
+
+    if (!ui_press_ok(tick, (ring_head - ring_tail) & (RING - 1), RING))
+        return;
+    if (button == UI_LEFT && amiga_layout.ntsc) {       /* the seat list's arrows */
+        if (layout_inside(&amiga_layout.scroll_up, x, y)) {
+            amiga_scroll_others(-1);
+            return;
+        }
+        if (layout_inside(&amiga_layout.scroll_down, x, y)) {
+            amiga_scroll_others(1);
+            return;
+        }
+    }
+    n = ui_click(&amiga_layout, x, y, button, keys);
+    for (i = 0; i < n; ++i) {
+        if (keys[i] == AK_SOUND)        /* the SOUND button: as F3, the game never sees it */
+            snd_toggle();
+        else
+            push(keys[i]);
+    }
+    if (ui_dirty())
+        dialog_sync();                  /* a stepper moved */
+    if (n)
+        ui_press_taken(tick);
+}
+
 static void take_rawkey(UWORD code, UWORD qualifier, APTR address)
 {
     struct InputEvent ie;
@@ -118,16 +152,20 @@ unsigned char in_key(void)
     struct IntuiMessage *m;
     unsigned char k;
 
-    amiga_present();
     if (amiga_win) {
         while ((m = (struct IntuiMessage *)GetMsg(amiga_win->UserPort)) != 0) {
             ULONG class = m->Class;
             UWORD code = m->Code, qualifier = m->Qualifier;
             APTR address = m->IAddress;
+            WORD mx = m->MouseX, my = m->MouseY;
 
             ReplyMsg((struct Message *)m);
             if (class == IDCMP_RAWKEY)
                 take_rawkey(code, qualifier, address);
+            else if (class == IDCMP_MOUSEBUTTONS && code == SELECTDOWN)
+                amiga_click(UI_LEFT, mx, my);
+            else if (class == IDCMP_MOUSEBUTTONS && code == MENUDOWN)
+                amiga_click(UI_RIGHT, mx, my);
         }
     }
     if (ring_head == ring_tail)

@@ -11,6 +11,9 @@
 #include "amiga.h"
 #include "gfx.h"
 
+#ifndef GFX_DEPTH
+#define GFX_DEPTH 5                      /* 32 colours */
+#endif
 #define FONT_H 8
 #define BASELINE 6
 
@@ -20,7 +23,13 @@ struct Window *amiga_win;
 static struct Screen *scr;
 static struct RastPort *rp;
 static struct TextFont *font;
-static UWORD *checker;                  /* the dim pattern: the blitter reads it, so it sits in chip RAM */
+static UWORD *checker;                  /* the dim pattern, then the hatch's: the blitter reads them, so they sit in chip RAM */
+static UWORD *stripes;
+
+static struct BitMap aside;             /* gfx_save's copy */
+static struct RastPort aside_rp;
+static struct rect aside_r;
+static unsigned char aside_planes;
 
 static struct TextAttr topaz = { (STRPTR)"topaz.font", FONT_H, 0, FPF_ROMFONT };
 
@@ -37,7 +46,7 @@ unsigned char gfx_open(unsigned short *width, unsigned short *height)
         *p = 0;
     ns.Width = 320;
     ns.Height = h;
-    ns.Depth = 5;
+    ns.Depth = GFX_DEPTH;
     ns.DetailPen = 0;
     ns.BlockPen = 1;
     ns.Type = CUSTOMSCREEN;
@@ -52,7 +61,7 @@ unsigned char gfx_open(unsigned short *width, unsigned short *height)
     nw.Height = h;
     nw.DetailPen = 0;
     nw.BlockPen = 1;
-    nw.IDCMPFlags = IDCMP_RAWKEY;
+    nw.IDCMPFlags = IDCMP_RAWKEY | IDCMP_MOUSEBUTTONS;
     nw.Flags = BORDERLESS | BACKDROP | ACTIVATE | RMBTRAP | NOCAREREFRESH;
     nw.Screen = scr;
     nw.Type = CUSTOMSCREEN;
@@ -61,15 +70,21 @@ unsigned char gfx_open(unsigned short *width, unsigned short *height)
         gfx_close();
         return 0;
     }
+    amiga_pointer_set(amiga_win);
     ShowTitle(scr, FALSE);              /* the title bar would cover row 0 on a 200-line screen */
     rp = amiga_win->RPort;
     if ((font = OpenFont(&topaz)) != 0)
         SetFont(rp, font);
     SetDrMd(rp, JAM2);
-    checker = (UWORD *)AllocMem(4, MEMF_CHIP);
+    checker = (UWORD *)AllocMem(12, MEMF_CHIP);
     if (checker) {
         checker[0] = 0xAAAA;
         checker[1] = 0x5555;
+        stripes = checker + 2;          /* four rows, each shifted a pixel: diagonals, 4 pixels apart */
+        stripes[0] = 0x8888;
+        stripes[1] = 0x4444;
+        stripes[2] = 0x2222;
+        stripes[3] = 0x1111;
     }
     layout_make(&amiga_layout, h);
     *width = 320;
@@ -79,10 +94,12 @@ unsigned char gfx_open(unsigned short *width, unsigned short *height)
 
 void gfx_close(void)
 {
+    gfx_restore();
     rp = 0;
     if (checker)
-        FreeMem(checker, 4);
-    checker = 0;
+        FreeMem(checker, 12);
+    checker = stripes = 0;
+    amiga_pointer_clear(amiga_win);
     if (amiga_win)
         CloseWindow(amiga_win);
     amiga_win = 0;
@@ -145,14 +162,44 @@ void gfx_text_right(short right, short y, const char *s, unsigned char n, unsign
     gfx_text(right - n * 8, y, s, n, pen, bg);
 }
 
+void gfx_glyph(short x, short y, unsigned char ch, unsigned char scale, unsigned char pen)
+{
+    ULONG loc;
+    unsigned short off, w, row, bit, bitpos;
+    short start;
+    const UBYTE *data;
+
+    if (!font || ch < font->tf_LoChar || ch > font->tf_HiChar)
+        return;
+    loc = ((const ULONG *)font->tf_CharLoc)[ch - font->tf_LoChar];
+    off = loc >> 16;
+    w = loc & 0xFFFF;
+    SetAPen(rp, pen);
+    for (row = 0; row < font->tf_YSize; ++row) {
+        data = (const UBYTE *)font->tf_CharData + row * font->tf_Modulo;
+        start = -1;
+        for (bit = 0; bit <= w; ++bit) {            /* runs of lit pixels, one RectFill each */
+            bitpos = off + bit;
+            if (bit < w && (data[bitpos >> 3] & (0x80 >> (bitpos & 7)))) {
+                if (start < 0)
+                    start = bit;
+            } else if (start >= 0) {
+                RectFill(rp, x + start * scale, y + row * scale, x + bit * scale - 1, y + row * scale + scale - 1);
+                start = -1;
+            }
+        }
+    }
+}
+
 void gfx_hatch(const struct rect *r, unsigned char pen_a, unsigned char pen_b)
 {
-    short x, y;
-    for (y = r->y; y < r->y + r->h; ++y)
-        for (x = r->x; x < r->x + r->w; ++x) {
-            SetAPen(rp, ((x + y) & 3) < 2 ? pen_a : pen_b);
-            WritePixel(rp, x, y);
-        }
+    if (!stripes || r->w <= 0 || r->h <= 0)
+        return;
+    SetAPen(rp, pen_a);
+    SetBPen(rp, pen_b);
+    SetAfPt(rp, stripes, 2);            /* 4 rows of 16 pixels */
+    RectFill(rp, r->x, r->y, r->x + r->w - 1, r->y + r->h - 1);
+    SetAfPt(rp, 0, 0);
 }
 
 void gfx_dim(const struct rect *r, unsigned char pen)
@@ -165,4 +212,52 @@ void gfx_dim(const struct rect *r, unsigned char pen)
     RectFill(rp, r->x, r->y, r->x + r->w - 1, r->y + r->h - 1);
     SetAfPt(rp, 0, 0);
     SetDrMd(rp, JAM2);
+}
+
+/* what start.c calls: the screen and window, before and after the game */
+unsigned char amiga_display_open(void)
+{
+    unsigned short w, h;
+    return gfx_open(&w, &h);
+}
+
+void amiga_display_close(void)
+{
+    gfx_close();
+}
+
+/* A dialog opens over the playfield and closes again many times a game: copying what it covers aside and back is two
+ * blits, where drawing the playfield again is some fifteen hundred graphics calls. */
+unsigned char gfx_save(const struct rect *r)
+{
+    unsigned char i;
+    if (!rp || aside_planes)
+        return 0;
+    InitBitMap(&aside, GFX_DEPTH, r->w, r->h);
+    for (i = 0; i < GFX_DEPTH; ++i) {
+        aside.Planes[i] = (PLANEPTR)AllocRaster(r->w, r->h);
+        if (!aside.Planes[i])
+            break;
+        ++aside_planes;
+    }
+    if (aside_planes != GFX_DEPTH) {
+        while (aside_planes)
+            FreeRaster(aside.Planes[--aside_planes], r->w, r->h);
+        return 0;
+    }
+    aside_r = *r;
+    InitRastPort(&aside_rp);
+    aside_rp.BitMap = &aside;
+    ClipBlit(rp, r->x, r->y, &aside_rp, 0, 0, r->w, r->h, 0xC0);
+    return 1;
+}
+
+void gfx_restore(void)
+{
+    if (!aside_planes)
+        return;
+    if (rp)
+        ClipBlit(&aside_rp, 0, 0, rp, aside_r.x, aside_r.y, aside_r.w, aside_r.h, 0xC0);
+    while (aside_planes)
+        FreeRaster(aside.Planes[--aside_planes], aside_r.w, aside_r.h);
 }

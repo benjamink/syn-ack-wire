@@ -42,7 +42,7 @@ static void fixture(void)
     for (i = 0; i < RULE_KITSIZE; ++i) kit[i] = NONE;
     memset(pr, 0, sizeof pr);
     pr_kind = 0; step = 0; edit_len = 0; me = 2; turn = 2; link_up = 1; leaving = 0;
-    ui_title_mode(0); ui_ask_yes_no(0); ui_reset();
+    ui_title_mode(0); ui_ask_yes_no(0); ui_reset(); ui_press_forget();
 }
 static void centre(const struct rect *r, short *x, short *y) { *x = r->x + r->w / 2; *y = r->y + r->h / 2; }
 static unsigned char click_rect(const struct layout *l, const struct rect *r, unsigned char button)
@@ -257,6 +257,31 @@ static void test_same_answers_pal_and_ntsc(void)
     CHECK(click_rect(&ntsc, &ntsc.syn_row[3], UI_LEFT) == 1 && keys[0] == 'I');
 }
 
+static void test_double_click_is_one_press(void)
+{
+    CHECK(ui_press_ok(100, 0, 32) == 1);
+    ui_press_taken(100);
+    CHECK(ui_press_ok(101, 0, 32) == 0 && ui_press_ok(102, 0, 32) == 0);   /* the second of a double click */
+    CHECK(ui_press_ok(103, 0, 32) == 1);                                   /* a deliberate second press */
+}
+static void test_press_gap_survives_the_tick_wrapping(void)
+{
+    ui_press_taken(254);
+    CHECK(ui_press_ok(255, 0, 32) == 0 && ui_press_ok(0, 0, 32) == 0);
+    CHECK(ui_press_ok(1, 0, 32) == 1);
+}
+static void test_hammering_is_dropped_when_the_ring_is_half_full(void)
+{
+    CHECK(ui_press_ok(50, 15, 32) == 1);
+    CHECK(ui_press_ok(50, 16, 32) == 0);                                   /* half full: no more keys queued */
+    CHECK(ui_press_ok(50, 31, 32) == 0);
+}
+static void test_a_press_that_made_no_key_does_not_start_the_gap(void)
+{
+    CHECK(ui_press_ok(10, 0, 32) == 1);                                    /* nothing was taken: not recorded */
+    CHECK(ui_press_ok(10, 0, 32) == 1);
+}
+
 int main(void)
 {
     RUN(test_node_in_kit_runs_that_exploit); RUN(test_node_not_in_kit_is_nothing);
@@ -271,7 +296,9 @@ int main(void)
     RUN(test_hivejack_right_cancels_count); RUN(test_seat_count_chips); RUN(test_title_buttons);
     RUN(test_yes_no_question); RUN(test_log_off_question_in_play); RUN(test_no_prompt_no_key);
     RUN(test_other_seats_turn_no_key); RUN(test_link_down_no_key); RUN(test_click_outside_everything);
-    RUN(test_same_answers_pal_and_ntsc);
+    RUN(test_same_answers_pal_and_ntsc); RUN(test_double_click_is_one_press);
+    RUN(test_press_gap_survives_the_tick_wrapping); RUN(test_hammering_is_dropped_when_the_ring_is_half_full);
+    RUN(test_a_press_that_made_no_key_does_not_start_the_gap);
     printf("%d tests, %d failures\n", ran, failures);
     return failures != 0;
 }

@@ -25,7 +25,8 @@ struct layout {
     unsigned char seat_cards;           /* PAL: one card for each seat. NTSC: 2 (me, the seat to move) and the list */
     struct rect seat[RULE_MAXPLAYERS];
     struct rect others, scroll_up, scroll_down;     /* NTSC only: the other seats' list and its arrows */
-    struct rect dlg, dlg_row[NSYN];     /* the dialog window, and the buy window's syndicate rows (Task 6) */
+    struct rect dlg, dlg_row[NSYN];     /* the buy window, and its syndicate rows */
+    struct rect dlg_small, ask;         /* the hivejack and seat-count window (the buy window's top), and a Y/N question */
     struct rect btn[UI_BTN_MAX];        /* empty (w == 0) until the dialog or title that owns it fills it in */
 };
 
@@ -39,5 +40,8 @@ signed char layout_syn_at(const struct layout *l, short x, short y);        /* a
 signed char layout_kit_at(const struct layout *l, short x, short y);        /* a kit chip, 0-5, or -1 */
 signed char layout_seat_at(const struct layout *l, short x, short y);       /* PAL: a seat's card; NTSC: -1 */
 signed char layout_btn_at(const struct layout *l, short x, short y);        /* a BTN_*, or -1 */
+/* The same among lo..hi only: the title's buttons share their band with the NTSC buy window's, so each context
+ * looks among its own. */
+signed char layout_btn_in(const struct layout *l, short x, short y, unsigned char lo, unsigned char hi);
 
 #endif

@@ -5,6 +5,42 @@ static void set(struct rect *r, short x, short y, short w, short h)
     r->x = x; r->y = y; r->w = w; r->h = h;
 }
 
+/* The windows of the dialogs, from the mockups' buy window (228 wide at x = 46; 190 high at y = 22 on PAL, 176 at 14 on NTSC).
+ * Every button is in a band of its own so that one click is one button whatever dialog is open; the title's come with Task 7. */
+static void dialogs(struct layout *l, unsigned char ntsc)
+{
+    short wx = 46, ww = 228, wy = ntsc ? 14 : 22, wh = ntsc ? 176 : 190, by = wy + wh - (ntsc ? 20 : 22), y0, step, i;
+
+    set(&l->dlg, wx, wy, ww, wh);
+    y0 = wy + (ntsc ? 34 : 37);
+    step = ntsc ? 12 : 15;
+    for (i = 0; i < NSYN; ++i)
+        set(&l->dlg_row[i], wx + 4, y0 + i * step - (ntsc ? 1 : 2), ww - 8, ntsc ? 11 : 14);
+    set(&l->btn[BTN_BUY], wx + 8, by, 36, 16);
+    set(&l->btn[BTN_UNDO], wx + 62, by, 44, 16);
+    set(&l->btn[BTN_NULLROUTE], wx + 118, by, 92, 16);   /* the mockup's "CALL NULL-ROUTE" ran past the window */
+    set(&l->dlg_small, wx, wy, ww, 108);
+    set(&l->btn[BTN_MINUS], wx + 70, wy + 36, 24, 16);
+    set(&l->btn[BTN_PLUS], wx + 134, wy + 36, 24, 16);
+    for (i = 0; i < 5; ++i)
+        set(&l->btn[BTN_SEAT2 + i], wx + 14 + i * 42, wy + 58, 36, 16);
+    set(&l->btn[BTN_OK], wx + 90, wy + 80, 48, 16);
+    set(&l->ask, 62, wy + 104, 196, 56);
+    set(&l->btn[BTN_YES], l->ask.x + 24, wy + 122, 36, 16);
+    set(&l->btn[BTN_NO], l->ask.x + l->ask.w - 24 - 28, wy + 122, 28, 16);
+}
+
+/* The title's row of buttons, one row on both heights (the NTSC strip starts at 190). */
+static void title_buttons(struct layout *l)
+{
+    static const unsigned char width[5] = { 72, 56, 56, 48, 48 };       /* JACK IN, HINTS, SOUND, HELP, QUIT: 8 a letter + 16 */
+    short x = 12, i;
+    for (i = 0; i < 5; ++i) {
+        set(&l->btn[BTN_JACK + i], x, 168, width[i], 18);
+        x += width[i] + 4;
+    }
+}
+
 /* The numbers are the approved mockups' (tools/amiga_mock.py: draw_grid_A, draw_side, seat_cards, prompt_strip and their NTSC
  * twins). PAL: 256 lines, cells 16x15, a card for every seat. NTSC: 200 lines, cells 16x13, two cards and a list. */
 void layout_make(struct layout *l, unsigned short height)
@@ -19,38 +55,40 @@ void layout_make(struct layout *l, unsigned short height)
     l->height = ntsc ? 200 : 256;
     l->ntsc = ntsc;
     l->cell_w = 16;
-    l->cell_h = ntsc ? 13 : 15;
+    l->cell_h = ntsc ? 12 : 15;
     l->grid_x = 14;
     l->grid_y = ntsc ? 21 : 22;
     set(&l->header, 0, 0, 320, 11);
     set(&l->grid, 4, l->grid_y - 10, RULE_COLS * l->cell_w + 12, RULE_ROWS * l->cell_h + 12);
     if (ntsc) {
-        set(&l->syn_panel, 218, 12, 98, 76);
-        set(&l->kit_panel, 218, 90, 98, 50);
-        set(&l->log, 0, 172, 320, 18);
+        set(&l->syn_panel, 218, 12, 98, 75);
+        set(&l->kit_panel, 218, 88, 98, 47);
+        set(&l->log, 0, 165, 320, 24);
         set(&l->prompt, 0, 190, 320, 10);
         set(&l->clock, 228, 192, 64, 6);
         l->seat_cards = 2;
-        set(&l->seat[0], 4, 142, 102, 30);
-        set(&l->seat[1], 108, 142, 102, 30);
-        set(&l->others, 212, 142, 104, 30);
-        set(&l->scroll_up, 304, 144, 9, 12);
-        set(&l->scroll_down, 304, 158, 9, 12);
+        set(&l->seat[0], 4, 137, 102, 28);
+        set(&l->seat[1], 108, 137, 102, 28);
+        set(&l->others, 212, 137, 104, 28);
+        set(&l->scroll_up, 304, 139, 9, 12);
+        set(&l->scroll_down, 304, 152, 9, 12);
     } else {
         set(&l->syn_panel, 218, 12, 98, 80);
         set(&l->kit_panel, 218, 96, 98, 62);
-        set(&l->log, 0, 228, 320, 18);
+        set(&l->log, 0, 222, 320, 24);
         set(&l->prompt, 0, 246, 320, 10);
         set(&l->clock, 228, 248, 64, 6);
         l->seat_cards = RULE_MAXPLAYERS;
         for (i = 0; i < RULE_MAXPLAYERS; ++i)
-            set(&l->seat[i], 4 + (i % 3) * 105, 161 + (i / 3) * 33, 102, 31);
+            set(&l->seat[i], 4 + (i % 3) * 105, 161 + (i / 3) * 31, 102, 29);
     }
+    dialogs(l, ntsc);
+    title_buttons(l);
     for (i = 0; i < NSYN; ++i)
         set(&l->syn_row[i], 222, (ntsc ? 24 : 26) + i * 9, 92, 9);
     for (i = 0; i < RULE_KITSIZE; ++i) {
         if (ntsc)
-            set(&l->kit_chip[i], 223 + (i % 2) * 47, 102 + (i / 2) * 12, 44, 11);
+            set(&l->kit_chip[i], 223 + (i % 2) * 47, 99 + (i / 2) * 12, 44, 11);
         else
             set(&l->kit_chip[i], 223 + (i % 2) * 47, 109 + (i / 2) * 15, 44, 13);
     }
@@ -104,11 +142,16 @@ signed char layout_seat_at(const struct layout *l, short x, short y)
     return -1;
 }
 
-signed char layout_btn_at(const struct layout *l, short x, short y)
+signed char layout_btn_in(const struct layout *l, short x, short y, unsigned char lo, unsigned char hi)
 {
-    signed char i;
-    for (i = 0; i < UI_BTN_MAX; ++i)
+    unsigned char i;
+    for (i = lo; i <= hi && i < UI_BTN_MAX; ++i)
         if (l->btn[i].w && layout_inside(&l->btn[i], x, y))
             return i;
     return -1;
+}
+
+signed char layout_btn_at(const struct layout *l, short x, short y)
+{
+    return layout_btn_in(l, x, y, 0, UI_BTN_MAX - 1);
 }
