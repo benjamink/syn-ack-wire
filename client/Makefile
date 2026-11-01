@@ -656,7 +656,7 @@ $(AMIGA_B)/dial: test/amiga/dial.c $(AMIGA_NIOLIB) | $(AMIGA_B)
 # the game: the common code, the MS-DOS text display drawing into an array (PC_SCREEN) and src/amiga/ putting that on screen
 AMIGASRC = src/common/main.c src/common/game.c src/common/proto.c src/msdos/display_text.c \
            $(addprefix src/amiga/,net_fn.c input.c keys.c render.c present.c start.c sound.c sndlogic.c prefs.c prefs_io.c)
-AMIGADEFS = -DPC_SCREEN=pc_screen -DDISPLAY_IDLE=1 -Wno-main
+AMIGADEFS = -DPC_SCREEN=pc_screen -DDISPLAY_IDLE=1 -DQUIT_TO_OS=1 -DQUIT_ASK='"QUIT? Y/N"' -Wno-main
 $(AMIGA_B)/syn-ack-wire-amiga: $(AMIGASRC) $(HDRS) $(DOSHDRS) $(AMIGA_NIOLIB) | $(AMIGA_B)
 	$(AMIGA_CC) $(AMIGA_FLAGS) $(DEFS) $(AMIGADEFS) $(AMIGASRC) $(AMIGA_NIOLIB) -o $@
 	@echo "$@: $$(stat -c %s $@) bytes"

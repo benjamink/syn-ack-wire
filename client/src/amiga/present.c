@@ -74,6 +74,7 @@ unsigned char amiga_display_open(void)
     amiga_win = OpenWindow(&nw);
     if (!amiga_win)
         return 0;
+    ShowTitle(scr, FALSE);              /* the title bar would cover row 0 on a 200-line screen */
     rp = amiga_win->RPort;
     if ((font = OpenFont(&topaz)) != 0)
         SetFont(rp, font);

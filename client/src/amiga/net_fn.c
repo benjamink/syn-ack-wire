@@ -63,7 +63,6 @@ unsigned char net_open(const char *url)
 {
     unsigned port = parse(url);
     unsigned char rc;
-    amiga_prefs_save();                 /* the handle the player dials with */
     rx_head = rx_tail = 0;              /* anything left from an old connection is junk */
     roff = woff = 0;
     quiet = failing = eof = is_open = 0;
@@ -101,6 +100,7 @@ unsigned char net_poll(void)
         return 0;                       /* ring full: the assembler drains it first */
     rc = fn_read(sess, roff, rx_ring + rx_tail, n, &got, &flags);
     if (rc == FN_ERR_NOT_READY) {
+        failing = 0;                    /* the exchange itself worked: an earlier blip is over */
         quiet = 1;
         return 0;
     }
@@ -122,6 +122,8 @@ unsigned char net_send(unsigned char len)
     uint16_t w = 0;
     uint8_t rc;
     quiet = 0;                          /* the answer is on its way: look at once */
+    if (tx[0] == 'H')
+        amiga_prefs_save();             /* the hello carries the handle the player chose */
     rc = fn_write(sess, woff, tx, len, &w);
     woff += w;
     return rc ? rc : (w == len ? 0 : 1);

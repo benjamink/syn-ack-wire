@@ -1028,7 +1028,7 @@ from TNFS, as M.U.L.E.'s Intellivision client is booted); `synack.bin` and `syna
 
 A stock A500 with Kickstart and Workbench 1.3 or later, 512 KB, the FujiNet on the serial port. This is step 1 of
 the Amiga client (`docs/superpowers/specs/2026-11-01-amiga-client-design.md`): the game plays, in the MS-DOS text
-screens; the circuit-board graphics, the mouse, menus and instruction pages are the next steps.
+screens; the circuit-board graphics, the mouse, menus and instruction pages are the next steps. The screen's title bar is hidden (`ShowTitle`), or row 0 would lie under it on NTSC.
 
 - **Build:** `make amiga` gives `build/amiga/syn-ack-wire-amiga`. Needs `m68k-amigaos-gcc` (`AMIGA_BIN`, default
   `/opt/amiga/bin`) and the prebuilt fujinet-nio-lib (`make -C $FUJINET_NIO_LIB amiga`; the library is read, never changed).
@@ -1042,12 +1042,13 @@ screens; the circuit-board graphics, the mouse, menus and instruction pages are 
   3 second grace, and the common code redials with the seat token.
 - **Keys:** F1 or Help or `?` the instructions (not yet: the pages are step 3), F2 move hints, F3 sound, Return, Backspace,
   Delete, Esc; cursor left and right page. Amiga-key chords are left to the menus. The mouse does nothing yet.
-- **Handle:** kept in `S:SynAckWire.prefs` (`HANDLE=NAME`), read for the title and written when the player dials.
-- **Sound:** chords as short notes through `audio.device`, the same pitches as the PC speaker's; silence if the device is
+- **Handle:** kept in `S:SynAckWire.prefs` (`HANDLE=NAME`), read for the title and written when the hello goes out with it, only if it changed. AmigaDOS requesters are off while it is touched, so a write-protected floppy loses the memory and nothing else.
+- **Sound:** chords as short notes through `audio.device`, the same pitches as the PC speaker's, on one channel (a write wants a single one); silence if the device is
   busy. The rules (which chord cuts which) are tested on the host; **the sound has not been heard**, only run.
 - **Testing:** the host tests (`make test-amiga-net test-amiga-keys test-amiga-present test-amiga-sound
   test-amiga-prefs`); `test/amiga_accept.sh` plays a whole autoplay game against bots on an emulated A500 on spare
   ports (PAL about 210 s, `NTSC=1` about 330 s, `CUT=1` stalls the serial bridge for 30 s, the server sees AMIGA leave
   and rejoin its seat, and the game ends). `tools/run-amiga.sh` is the rig (`AMIGA_NTSC=true` for NTSC).
   Amiberry's serial port is a TCP pipe: real baud-rate overruns on a cable are **not** tested; that is on the hardware checklist.
-- **Known gaps:** no instruction pages and no quit (close the program from Workbench); `void main` returns no exit code.
+- **Quit:** Esc on the title, then Y (`platform_quit` is `exit(0)`; the destructors close everything). Not yet run in the emulator.
+- **Known gaps:** no instruction pages (F1 says so); `void main` returns no exit code; the loop never waits, so it uses all the CPU a stock A500 has (deferred: `WaitTOF()` in `in_key`).

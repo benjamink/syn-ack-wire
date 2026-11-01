@@ -60,7 +60,8 @@ unsigned char ticks(void) { return now; }
 unsigned char ticks_per_sec(void) { return 50; }
 
 /* ---- the harness */
-void amiga_prefs_save(void) { }         /* prefs_io.c's, not under test here */
+static int saves;
+void amiga_prefs_save(void) { ++saves; }    /* prefs_io.c's, counted here */
 
 static int failures, ran;
 #define CHECK(c) do { if (!(c)) { printf("  FAIL %s:%d: %s\n", __FILE__, __LINE__, #c); ++failures; } } while (0)
@@ -68,6 +69,7 @@ static int failures, ran;
 
 static void reset(void)
 {
+    saves = 0;
     script_clear();
     opens = reads = writes = closes = 0; open_host[0] = 0; open_port = 0; open_rc = FN_OK;
     last_read_off = last_write_off = 0; biggest_read_request = 0; now = 0;
@@ -176,6 +178,19 @@ static void test_blip_tolerated(void)
     script_clear(); script_add(FN_OK, "k", 1, 0);
     CHECK(net_poll() == 0); CHECK(rx_tail == 1);
 }
+static void test_error_forgotten_after_a_good_exchange(void)
+{
+    int i;
+    open_ok();
+    script_add(FN_ERR_TRANSPORT, 0, 0, 0);
+    CHECK(net_poll() == 0);                             /* one garbled reply, at tick 0 */
+    script_clear();
+    for (i = 0; i < 10; ++i) script_add(FN_ERR_NOT_READY, 0, 0, 0);
+    for (i = 0; i < 10; ++i) { now += 20; CHECK(net_poll() == 0); }   /* four quiet seconds: the exchanges work */
+    script_clear(); script_add(FN_ERR_TRANSPORT, 0, 0, 0);
+    now += 20;
+    CHECK(net_poll() == 0);                             /* a second blip is a blip, not a dead line */
+}
 static void test_dead_line_reported(void)
 {
     int i, rc = 0;
@@ -210,6 +225,15 @@ static void test_read_cap(void)
     net_poll();
     CHECK(biggest_read_request <= 128);
 }
+static void test_hello_saves_the_handle(void)
+{
+    open_ok();
+    CHECK(saves == 0);                                  /* dialling alone saves nothing: no handle is typed yet */
+    tx[0] = 'H'; net_send(15);
+    CHECK(saves == 1);
+    tx[0] = 'P'; net_send(2);
+    CHECK(saves == 1);                                  /* only the hello carries the handle */
+}
 static void test_close(void)
 {
     open_ok();
@@ -223,8 +247,8 @@ int main(void)
     RUN(test_url_parsed); RUN(test_url_without_port_rejected); RUN(test_open_failure_passed_on);
     RUN(test_split_frame_kept); RUN(test_not_ready_is_quiet); RUN(test_quiet_paces_the_asking);
     RUN(test_data_polls_at_once); RUN(test_send_wakes_the_poll); RUN(test_ring_never_overruns); RUN(test_wrap);
-    RUN(test_offsets_sequential); RUN(test_blip_tolerated); RUN(test_dead_line_reported);
-    RUN(test_closed_flag); RUN(test_eof_delivers_data_first); RUN(test_read_cap); RUN(test_close);
+    RUN(test_offsets_sequential); RUN(test_blip_tolerated); RUN(test_error_forgotten_after_a_good_exchange); RUN(test_dead_line_reported);
+    RUN(test_closed_flag); RUN(test_eof_delivers_data_first); RUN(test_read_cap); RUN(test_hello_saves_the_handle); RUN(test_close);
     printf("%d tests, %d failures\n", ran, failures);
     return failures != 0;
 }

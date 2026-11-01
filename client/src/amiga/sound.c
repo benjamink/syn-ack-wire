@@ -25,7 +25,7 @@ static unsigned long clock;
 
 void snd_init(void)
 {
-    static UBYTE want[4] = { 3, 5, 10, 12 };     /* a left and a right channel, any pair */
+    static UBYTE want[4] = { 1, 2, 4, 8 };       /* any one channel: the notes follow each other, and a write wants one */
     unsigned char i;
 
     clock = SysBase->VBlankFrequency == 50 ? PAL_CLOCK : NTSC_CLOCK;

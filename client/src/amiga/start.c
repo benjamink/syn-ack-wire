@@ -7,6 +7,7 @@
 #include <proto/graphics.h>
 #include <proto/intuition.h>
 #include <stdlib.h>
+#include "../platform.h"
 #include "amiga.h"
 
 #define LIB_V33 33                      /* Kickstart 1.2; 1.3 is 34: nothing newer is used */
@@ -42,4 +43,10 @@ __attribute__((destructor)) static void amiga_exit(void)
         CloseLibrary((struct Library *)IntuitionBase);
     GfxBase = 0;
     IntuitionBase = 0;
+}
+
+/* Esc, Y on the title: the destructor above closes everything on the way out. */
+void platform_quit(void)
+{
+    exit(0);
 }
