@@ -671,9 +671,15 @@ test-amiga-present: test/amiga_present_test.c src/amiga/render.c src/amiga/rende
 	    test/amiga_present_test.c src/amiga/render.c
 	build/test/amiga_present_test
 
+test-amiga-sound: test/amiga_sound_test.c src/amiga/sndlogic.c src/amiga/sndlogic.h src/platform.h
+	mkdir -p build/test
+	gcc -g -std=gnu99 -Wall -Wno-main -funsigned-char -D__fastcall__= -o build/test/amiga_sound_test \
+	    test/amiga_sound_test.c src/amiga/sndlogic.c
+	build/test/amiga_sound_test
+
 clean:
 	rm -rf build
 
-.PHONY: FORCE all atr atrtest atari-nio test-atari-nio test-atari-nio-6502 test pc pc-apple2 pc-msdos pc-coco pc-nes pc-adam pc-h89 apple2_text apple2_text-po msdos msdos-img msdos-test msdos-wiremon coco coco-dsk coco-auto nes nestest nes-auto h89 h89-disk h89-wiremon adam adamtest adam-auto intv intvtest intv-auto test-amiga-net test-amiga-keys test-amiga-present clean
+.PHONY: FORCE all atr atrtest atari-nio test-atari-nio test-atari-nio-6502 test pc pc-apple2 pc-msdos pc-coco pc-nes pc-adam pc-h89 apple2_text apple2_text-po msdos msdos-img msdos-test msdos-wiremon coco coco-dsk coco-auto nes nestest nes-auto h89 h89-disk h89-wiremon adam adamtest adam-auto intv intvtest intv-auto test-amiga-net test-amiga-keys test-amiga-present test-amiga-sound clean
 .PRECIOUS: $(B)/%.s $(B)/%.o $(A2)/%.s $(A2)/%.o $(COCO)/%.o $(NES)/%.s $(NES)/%.o $(ADAM)/%.o
 .DELETE_ON_ERROR:
