@@ -63,7 +63,16 @@ The 8-bit side. The server enforces every rule; the client draws what it is told
 | `src/adam/help.c` | Adam: the instruction pages, from the program over the screen |
 | `src/adam/sound.asm`, `eoscall.asm` | Adam: the Atari's chords on the SN76489, from the NMI; the keyboard through EOS's jump table |
 | `src/adam/title_art.h` | The Atari's title art in the NES's box glyphs, **generated** by `tools/title_art.py n 0` |
+| `src/amiga/net_fn.c` | Network calls for the Amiga: FujiNet NIO through fujinet-nio-lib (a prebuilt archive, `FUJINET_NIO_LIB`), `fujinet-nio.device` loaded by the user's startup |
+| `src/amiga/input.c`, `keys.c` | Amiga: keys from the window's raw key events (`console.device` makes the letters; `keys.c` is the map, tested on the host) and `ticks()` from a vertical-blank server, 50 or 60 a second |
+| `src/amiga/present.c`, `render.c` | Amiga: the MS-DOS text display's 40×24 cells (it draws into `pc_screen`) shown in Topaz 8 on a 320-wide custom screen, only the changed runs; `render.c` finds them (tested on the host) |
+| `src/amiga/start.c` | Amiga: opens the libraries, the screen and the keys before `main()`, and closes whatever opened after it |
+| `src/amiga/sound.c`, `sndlogic.c` | Amiga: chords through `audio.device`, a note per queued write; `sndlogic.c` is which chord wins and the notes' periods (tested on the host) |
+| `src/amiga/prefs.c`, `prefs_io.c` | Amiga: the handle kept in `S:SynAckWire.prefs`, and `net_appkey` reading it |
 | `lib/fujinet-lib/` | fujinet-lib, a pinned copy (version and checksum in its README) |
+| `test/amiga_*_test.c`, `amiga_fake/` | Host tests for the Amiga layers (`make test-amiga-net test-amiga-keys test-amiga-present test-amiga-sound test-amiga-prefs`), the network one against a scripted fake of fujinet-nio-lib |
+| `test/amiga_accept.sh`, `amiga_server.py` | A whole autoplay game on the emulated A500 (`NTSC=1`, `CUT=1`); the scratch server says GAME OVER in its log |
+| `test/amiga/dial.c`, `test/amiga_rig_selfcheck.sh`, `tools/run-amiga.sh`, `amiga_guest.py` | The run rig: a stock A500 (Kickstart 1.3) in Amiberry against FujiNet NIO, and the check that it works |
 | `test/wiremon.c` | Protocol monitor; proves the network layer before any game screens exist |
 | `test/autoplay.c` | Test build that presses keys itself and BRKs for screen dumps |
 | `test/pc_harness.c` | The common code on a PC with gcc: sockets, printed display, autoplay keys |
@@ -998,6 +1007,9 @@ from TNFS, as M.U.L.E.'s Intellivision client is booted); `synack.bin` and `syna
 | raw SIO | 228 | |
 | fujinet-lib 5.0.0 | 1712 | open/status/read_nb/write/close plus the cc65 runtime and memcpy/memmove it pulls in; the test and the library have since been removed from the repo |
 | `wiremon.xex` | 2982 | whole file, including cc65's Atari startup code |
+| **amiga** (2026-11-01, m68k gcc 15, `-Os`, nix13) | | |
+| `syn-ack-wire-amiga` | 36552 | whole file; text 26240, data 80, bss 15420 (the receive ring, the 40×24 cells and their drawn copy, the game state); 284912 bytes of chip RAM are free after the broker loads on a stock A500 |
+| the screen | 20480 | chip RAM: 320×256, two bitplanes (PAL; 16000 on NTSC's 200 lines), opened by `start.c` |
 
 ## Tested (atari800 7.2.1 + FujiNet-PC 1.6 + server, NetSIO)
 - **Game client:** the autoplay build played for four minutes as host with two bots. It sent 75 answers covering
@@ -1011,3 +1023,31 @@ from TNFS, as M.U.L.E.'s Intellivision client is booted); `synack.bin` and `syna
   made about 840 status calls.
 - **Reconnect:** a relay cut the TCP connection mid-game. Wiremon reconnected 2.7 s later with its token, got its
   seat back (the server only allows that mid-game for a valid token), and followed the game to the end.
+
+## Amiga (amiga)
+
+A stock A500 with Kickstart and Workbench 1.3 or later, 512 KB, the FujiNet on the serial port. This is step 1 of
+the Amiga client (`docs/superpowers/specs/2026-11-01-amiga-client-design.md`): the game plays, in the MS-DOS text
+screens; the circuit-board graphics, the mouse, menus and instruction pages are the next steps.
+
+- **Build:** `make amiga` gives `build/amiga/syn-ack-wire-amiga`. Needs `m68k-amigaos-gcc` (`AMIGA_BIN`, default
+  `/opt/amiga/bin`) and the prebuilt fujinet-nio-lib (`make -C $FUJINET_NIO_LIB amiga`; the library is read, never changed).
+  The C runtime is libnix's `nix13`, not clib2, whose start-up opens `utility.library`, which Kickstart 1.3 lacks.
+- **What runs:** the common code, `src/msdos/display_text.c` built with `PC_SCREEN=pc_screen` (it fills an array of
+  cells instead of video memory), and `src/amiga/`. `present.c` shows the array in Topaz 8 on a 320-wide screen (256 lines
+  PAL, 200 NTSC, from `GfxBase->NormalDisplayRows`), drawing only the cells that changed, in runs. The 40×24 game
+  is centred; 24 rows of 8 fit both.
+- **Network:** `fujinet-nio.device` must already be loaded (`fujinet-load-resident`, from the user's startup). Replies
+  are read in pieces of at most 128 bytes, polled about ten times a second while quiet; a dead line is reported after a
+  3 second grace, and the common code redials with the seat token.
+- **Keys:** F1 or Help or `?` the instructions (not yet: the pages are step 3), F2 move hints, F3 sound, Return, Backspace,
+  Delete, Esc; cursor left and right page. Amiga-key chords are left to the menus. The mouse does nothing yet.
+- **Handle:** kept in `S:SynAckWire.prefs` (`HANDLE=NAME`), read for the title and written when the player dials.
+- **Sound:** chords as short notes through `audio.device`, the same pitches as the PC speaker's; silence if the device is
+  busy. The rules (which chord cuts which) are tested on the host; **the sound has not been heard**, only run.
+- **Testing:** the host tests (`make test-amiga-net test-amiga-keys test-amiga-present test-amiga-sound
+  test-amiga-prefs`); `test/amiga_accept.sh` plays a whole autoplay game against bots on an emulated A500 on spare
+  ports (PAL about 210 s, `NTSC=1` about 330 s, `CUT=1` stalls the serial bridge for 30 s, the server sees AMIGA leave
+  and rejoin its seat, and the game ends). `tools/run-amiga.sh` is the rig (`AMIGA_NTSC=true` for NTSC).
+  Amiberry's serial port is a TCP pipe: real baud-rate overruns on a cable are **not** tested; that is on the hardware checklist.
+- **Known gaps:** no instruction pages and no quit (close the program from Workbench); `void main` returns no exit code.

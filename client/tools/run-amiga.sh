@@ -129,7 +129,7 @@ for i in $(seq 1 20); do ss -ltn | grep -q ":$NIO_PORT\b" && break; sleep 0.5; d
 ss -ltn | grep -q ":$NIO_PORT\b" || { stop; die "fujinet-nio did not listen on $NIO_PORT (see $RUN/nio.log)"; }
 
 ( exec amiberry --log --config "$WS/configs/amiga/base-68000.uae" -G -r "$RUN/rom/kickstart.rom" -0 "$RUN/wb13.adf" \
-    -s chipset=ocs -s chipmem_size=1 -s fastmem_size=0 -s bogomem_size=0 \
+    -s chipset=ocs -s ntsc=${AMIGA_NTSC:-false} -s chipmem_size=1 -s fastmem_size=0 -s bogomem_size=0 \
     -s serial_port=tcp://127.0.0.1:$SER_PORT -s serial_direct=true -s serial_hardware_ctsrts=false \
     -s "filesystem2=rw,DH1:SYNACK:$RUN/share,0" ) > "$RUN/amiberry.log" 2>&1 &
 record amiberry $! "$RUN/rom/kickstart.rom"

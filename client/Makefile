@@ -653,6 +653,21 @@ $(AMIGA_B):
 $(AMIGA_B)/dial: test/amiga/dial.c $(AMIGA_NIOLIB) | $(AMIGA_B)
 	$(AMIGA_CC) $(AMIGA_FLAGS) test/amiga/dial.c $(AMIGA_NIOLIB) -o $@
 
+# the game: the common code, the MS-DOS text display drawing into an array (PC_SCREEN) and src/amiga/ putting that on screen
+AMIGASRC = src/common/main.c src/common/game.c src/common/proto.c src/msdos/display_text.c \
+           $(addprefix src/amiga/,net_fn.c input.c keys.c render.c present.c start.c sound.c sndlogic.c prefs.c prefs_io.c)
+AMIGADEFS = -DPC_SCREEN=pc_screen -DDISPLAY_IDLE=1 -Wno-main
+$(AMIGA_B)/syn-ack-wire-amiga: $(AMIGASRC) $(HDRS) $(DOSHDRS) $(AMIGA_NIOLIB) | $(AMIGA_B)
+	$(AMIGA_CC) $(AMIGA_FLAGS) $(DEFS) $(AMIGADEFS) $(AMIGASRC) $(AMIGA_NIOLIB) -o $@
+	@echo "$@: $$(stat -c %s $@) bytes"
+amiga: $(AMIGA_B)/syn-ack-wire-amiga
+# the autoplay build: plays by itself (make amiga-test URL=N:TCP://127.0.0.1:6599/), no screen dumps
+$(AMIGA_B)/synack-amiga-auto: $(AMIGASRC) test/autoplay.c test/amiga_dump.c $(HDRS) $(DOSHDRS) $(AMIGA_NIOLIB) | $(AMIGA_B)
+	$(AMIGA_CC) $(AMIGA_FLAGS) $(DEFS) $(AMIGADEFS) -DAUTOPLAY -DDUMP_TICKS=0 -DKEY_TICKS=6 -DAUTO_HANDLE='"AMIGA"' \
+	    $(AMIGASRC) test/autoplay.c test/amiga_dump.c $(AMIGA_NIOLIB) -o $@
+	@echo "$@: $$(stat -c %s $@) bytes"
+amiga-test: $(AMIGA_B)/synack-amiga-auto
+
 test-amiga-net: test/amiga_net_test.c src/amiga/net_fn.c src/platform.h
 	mkdir -p build/test
 	gcc -g -std=gnu99 -Wall -Wno-main -funsigned-char -D__fastcall__= -Itest/amiga_fake -o build/test/amiga_net_test \
@@ -686,6 +701,6 @@ test-amiga-prefs: test/amiga_prefs_test.c src/amiga/prefs.c src/amiga/prefs.h
 clean:
 	rm -rf build
 
-.PHONY: FORCE all atr atrtest atari-nio test-atari-nio test-atari-nio-6502 test pc pc-apple2 pc-msdos pc-coco pc-nes pc-adam pc-h89 apple2_text apple2_text-po msdos msdos-img msdos-test msdos-wiremon coco coco-dsk coco-auto nes nestest nes-auto h89 h89-disk h89-wiremon adam adamtest adam-auto intv intvtest intv-auto test-amiga-net test-amiga-keys test-amiga-present test-amiga-sound test-amiga-prefs clean
+.PHONY: FORCE all atr atrtest atari-nio test-atari-nio test-atari-nio-6502 test pc pc-apple2 pc-msdos pc-coco pc-nes pc-adam pc-h89 apple2_text apple2_text-po msdos msdos-img msdos-test msdos-wiremon coco coco-dsk coco-auto nes nestest nes-auto h89 h89-disk h89-wiremon adam adamtest adam-auto intv intvtest intv-auto test-amiga-net test-amiga-keys test-amiga-present test-amiga-sound test-amiga-prefs amiga amiga-test clean
 .PRECIOUS: $(B)/%.s $(B)/%.o $(A2)/%.s $(A2)/%.o $(COCO)/%.o $(NES)/%.s $(NES)/%.o $(ADAM)/%.o
 .DELETE_ON_ERROR:
