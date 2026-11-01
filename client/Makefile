@@ -688,6 +688,12 @@ test-amiga-layout: test/amiga_layout_test.c src/amiga/layout.c src/amiga/layout.
 	    test/amiga_layout_test.c src/amiga/layout.c
 	build/test/amiga_layout_test
 
+test-amiga-ui: test/amiga_ui_test.c src/amiga/ui.c src/amiga/ui.h src/amiga/layout.c src/amiga/layout.h src/amiga/keys.h src/common/game.h
+	mkdir -p build/test
+	gcc -g -std=gnu99 -Wall -Wno-main -funsigned-char -D__fastcall__= -o build/test/amiga_ui_test \
+	    test/amiga_ui_test.c src/amiga/ui.c src/amiga/layout.c
+	build/test/amiga_ui_test
+
 test-amiga-keys: test/amiga_keys_test.c src/amiga/keys.c src/amiga/keys.h src/platform.h
 	mkdir -p build/test
 	gcc -g -std=gnu99 -Wall -Wno-main -funsigned-char -D__fastcall__= -o build/test/amiga_keys_test \
@@ -715,6 +721,6 @@ test-amiga-prefs: test/amiga_prefs_test.c src/amiga/prefs.c src/amiga/prefs.h
 clean:
 	rm -rf build
 
-.PHONY: FORCE all atr atrtest atari-nio test-atari-nio test-atari-nio-6502 test pc pc-apple2 pc-msdos pc-coco pc-nes pc-adam pc-h89 apple2_text apple2_text-po msdos msdos-img msdos-test msdos-wiremon coco coco-dsk coco-auto nes nestest nes-auto h89 h89-disk h89-wiremon adam adamtest adam-auto intv intvtest intv-auto test-amiga-net test-amiga-keys test-amiga-present test-amiga-sound test-amiga-prefs amiga amiga-test test-amiga-mock amiga-mock test-amiga-layout clean
+.PHONY: FORCE all atr atrtest atari-nio test-atari-nio test-atari-nio-6502 test pc pc-apple2 pc-msdos pc-coco pc-nes pc-adam pc-h89 apple2_text apple2_text-po msdos msdos-img msdos-test msdos-wiremon coco coco-dsk coco-auto nes nestest nes-auto h89 h89-disk h89-wiremon adam adamtest adam-auto intv intvtest intv-auto test-amiga-net test-amiga-keys test-amiga-present test-amiga-sound test-amiga-prefs amiga amiga-test test-amiga-mock amiga-mock test-amiga-layout test-amiga-ui clean
 .PRECIOUS: $(B)/%.s $(B)/%.o $(A2)/%.s $(A2)/%.o $(COCO)/%.o $(NES)/%.s $(NES)/%.o $(ADAM)/%.o
 .DELETE_ON_ERROR:
