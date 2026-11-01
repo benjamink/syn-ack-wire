@@ -653,9 +653,15 @@ $(AMIGA_B):
 $(AMIGA_B)/dial: test/amiga/dial.c $(AMIGA_NIOLIB) | $(AMIGA_B)
 	$(AMIGA_CC) $(AMIGA_FLAGS) test/amiga/dial.c $(AMIGA_NIOLIB) -o $@
 
+test-amiga-net: test/amiga_net_test.c src/amiga/net_fn.c src/platform.h
+	mkdir -p build/test
+	gcc -g -std=gnu99 -Wall -Wno-main -funsigned-char -D__fastcall__= -Itest/amiga_fake -o build/test/amiga_net_test \
+	    test/amiga_net_test.c src/amiga/net_fn.c
+	build/test/amiga_net_test
+
 clean:
 	rm -rf build
 
-.PHONY: FORCE all atr atrtest atari-nio test-atari-nio test-atari-nio-6502 test pc pc-apple2 pc-msdos pc-coco pc-nes pc-adam pc-h89 apple2_text apple2_text-po msdos msdos-img msdos-test msdos-wiremon coco coco-dsk coco-auto nes nestest nes-auto h89 h89-disk h89-wiremon adam adamtest adam-auto intv intvtest intv-auto clean
+.PHONY: FORCE all atr atrtest atari-nio test-atari-nio test-atari-nio-6502 test pc pc-apple2 pc-msdos pc-coco pc-nes pc-adam pc-h89 apple2_text apple2_text-po msdos msdos-img msdos-test msdos-wiremon coco coco-dsk coco-auto nes nestest nes-auto h89 h89-disk h89-wiremon adam adamtest adam-auto intv intvtest intv-auto test-amiga-net clean
 .PRECIOUS: $(B)/%.s $(B)/%.o $(A2)/%.s $(A2)/%.o $(COCO)/%.o $(NES)/%.s $(NES)/%.o $(ADAM)/%.o
 .DELETE_ON_ERROR:
