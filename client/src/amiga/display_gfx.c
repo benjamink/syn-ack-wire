@@ -428,8 +428,8 @@ static void paint_seat_area_ntsc(void)
         b[0] = seat_kind[s] == SEAT_BOT ? '*' : seat_kind[s] == SEAT_AWAY ? '?' : ' ';
         memcpy(b + 1, seat_name[s], 5);
         l = number(cash[s], 1);
-        gfx_text(LY.others.x + 4, LY.others.y + 2 + shown * 8, b, 6, PEN_TEXT, PEN_BG1);
-        gfx_text_right(LY.others.x + LY.others.w - 14, LY.others.y + 2 + shown * 8, numtxt, l, PEN_AMBER, PEN_BG1);
+        gfx_text(LY.others.x + 4, LY.others.y + 2 + shown * 8, b, total > 3 ? 4 : 5, PEN_TEXT, PEN_BG1);
+        gfx_text_right(LY.others.x + LY.others.w - (total > 3 ? 14 : 2), LY.others.y + 2 + shown * 8, numtxt, l, PEN_AMBER, PEN_BG1);
         ++shown;
     }
     if (total > 3) {
