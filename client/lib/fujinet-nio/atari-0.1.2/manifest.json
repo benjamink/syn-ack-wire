@@ -1,0 +1,8 @@
+{
+  "archive_sha256": "cf847904706ab69c95f2c410ba9185605c3b86284e509e3f8bb37001d900d137",
+  "build_command": "make -f makefiles/build.mk TARGET=atari PROGRAM=fujinet-nio ATARI_BACKEND=compact lib",
+  "compiler": "cc65 V2.19 - Git 37d4bb24",
+  "source_commit": "71b748f7697324a02561d97c2f1beb0afc0a48f2",
+  "target": "atari-compact",
+  "version": "0.1.2"
+}

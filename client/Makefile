@@ -5,6 +5,12 @@
 #   make atr                  build/atari/syn-ack-wire-atari.atr: boots the game with PicoBoot, plus the help pages
 #   make atrtest              build/atari/local/syn-ack-wire-atari.atr: the same disk dialing this machine (LOCAL_URL)
 #   make atr BOOT=Dos25       the same disk booting DOS 2.5 (the game as AUTORUN.SYS); make clean first
+#   make atari-nio            build/atari-nio/syn-ack-wire-atari.atr for FujiNet-NIO (separate from the normal build)
+#   make B=build/atari-nio-local NIO=1 URL=N:TCP://127.0.0.1:6502/ LOBBY_KEY=0 atr   NIO disk for a local server
+#   make test-atari-nio       host tests for the NIO adapter; make test-atari-nio-6502 runs its soft65c02 test
+#   NIO_LIB=/path             override the pinned package with a fujinet-nio-lib checkout or package
+#   NIO_VERSION=version      select a released Atari library (downloaded if absent)
+#                             In the NIO workspace, source scripts/env.sh before building; use a fresh B when URL changes.
 #   make apple2_text          build/apple2_text/synack: the Apple II client, text mode (IIe, IIc, IIgs)
 #   make apple2_text-po PRODOS=disk   build/apple2_text/syn-ack-wire-apple2.po: a ProDOS disk that boots it
 #   make msdos WATCOM=dir     build/msdos/SYNACK.EXE: the MS-DOS client (8088 and up, FUJINET.SYS)
@@ -18,8 +24,11 @@
 #   make h89-wiremon H89SYS=disk      build/h89/wiremon.h8d: the protocol monitor for the H89, on a CP/M disk that boots
 #   make intv                 build/intv/syn-ack-wire-intv.rom: the Intellivision client (IntyBASIC, the FujiNet cartridge)
 #   make clean
+.DEFAULT_GOAL := all
 CC65    ?=
+HOSTCC  ?= cc
 CC      = $(if $(CC65),$(CC65)/,)cc65
+CL65    = $(if $(CC65),$(CC65)/,)cl65
 AS      = $(if $(CC65),$(CC65)/,)ca65
 LD      = $(if $(CC65),$(CC65)/,)ld65
 TARGET  = atari
@@ -41,8 +50,37 @@ HELP_SECTOR ?= 600
 # QR code small)
 QR_URL  ?= HTTPS://SYN-ACK-WIRE.FLY.DEV/ATARI
 
+NIO_VERSION ?= 0.1.2
+NIO_PACKAGE = lib/fujinet-nio/atari-$(NIO_VERSION)
+NIO_LIB ?= $(NIO_PACKAGE)
+NIO_ARCHIVE = $(if $(wildcard $(NIO_LIB)/Makefile),$(NIO_LIB)/build/fujinet-nio-atari.lib,$(NIO_LIB)/fujinet-nio-atari.lib)
+$(NIO_ARCHIVE):
+	@if [ "$(NIO_LIB)" = "$(NIO_PACKAGE)" ]; then \
+	    python3 tools/fetch_nio_lib.py "$(NIO_VERSION)" "$(NIO_PACKAGE)"; \
+	elif [ -f "$(NIO_LIB)/Makefile" ]; then \
+	    $(MAKE) -C "$(NIO_LIB)" atari; \
+	else echo "NIO package or checkout missing: $(NIO_LIB)" >&2; exit 1; fi
+ifeq ($(NIO),1)
+CFLAGS += -DNIO_BUILD=1
+NET     = $(B)/net_nio.o $(B)/net_nio_appkey.o $(B)/net_nio_sound.o $(B)/ring.o
+CFLAGS += -I $(NIO_LIB)/include
+NETLIB  = $(NIO_ARCHIVE)
+else
 NET     = $(B)/net_sio.o $(B)/ring.o
+NETLIB  =
+endif
 COMMON  = $(B)/proto.o
+
+ifeq ($(NIO),1)
+# Track the selected package across command-line version changes, including when
+# an older archive has an older timestamp than the existing build.
+$(B)/nio-lib-selection: FORCE | $(B)
+	@printf '%s\n' '$(abspath $(NIO_LIB))' > $@.tmp
+	@cmp -s $@.tmp $@ && rm $@.tmp || mv $@.tmp $@
+$(B)/net_nio.s: $(NIO_ARCHIVE) $(B)/nio-lib-selection
+$(B)/synack.xex: $(B)/nio-lib-selection
+endif
+FORCE:
 
 GAME    = $(B)/main.o $(B)/game.o $(B)/display_text.o $(B)/input.o $(B)/help.o $(B)/sound.o $(B)/snow.o $(B)/dli.o
 HDRS    = src/common/proto_tab.h src/common/theme_tab.h src/common/game.h src/display.h src/platform.h src/config.h Makefile
@@ -64,8 +102,8 @@ src/atari/title_art.inc: $(TITLE) tools/title_art.py
 $(B)/display_text.s: src/atari/title_art.h
 $(B)/snow.o: src/atari/title_art.inc
 
-$(B)/synack.xex: $(GAME) $(COMMON) $(NET) src/atari/game.cfg
-	$(LD) -C src/atari/game.cfg -m $(B)/synack.map -o $@ $(GAME) $(COMMON) $(NET) $(TARGET).lib
+$(B)/synack.xex: $(GAME) $(COMMON) $(NET) $(NETLIB) src/atari/game.cfg
+	$(LD) -C src/atari/game.cfg -m $(B)/synack.map -Ln $(B)/synack.lbl -o $@ $(GAME) $(COMMON) $(NET) $(NETLIB) $(TARGET).lib
 	@echo "$@: $$(stat -c %s $@) bytes"
 
 $(B):
@@ -86,8 +124,24 @@ $(B)/wiremon-auto.s: test/wiremon.c src/common/proto_tab.h | $(B)
 	$(CC) $(CFLAGS) -DURL='"$(URL)"' -DAUTOTEST -o $@ $<
 
 $(B)/%.xex: $(B)/%.o $(COMMON) $(NET)
-	$(LD) -t $(TARGET) -m $(B)/$*.map -o $@ $^ $(TARGET).lib
+	$(LD) -t $(TARGET) -m $(B)/$*.map -o $@ $^ $(NETLIB) $(TARGET).lib
 	@echo "$@: $$(stat -c %s $@) bytes"
+
+# Separate objects and disk: the ordinary Atari build remains unchanged.
+atari-nio:
+	$(MAKE) B=build/atari-nio NIO=1 atr
+
+test-atari-nio: $(NIO_ARCHIVE)
+	python3 -m unittest discover -s test -p test_fetch_nio_lib.py
+	mkdir -p build/test-atari-nio
+	$(HOSTCC) -std=c99 -Wall -Wextra -Werror -D__ATARI__ -D__fastcall__= -DNIO_TEST -DFN_MAX_URL_LEN=128 \
+	    -I$(NIO_LIB)/include test/net_nio_test.c src/atari/net_nio.c -o build/test-atari-nio/net-test
+	build/test-atari-nio/net-test
+
+test-atari-nio-6502: $(NIO_ARCHIVE)
+	mkdir -p build
+	ln -sfn "$(abspath $(NIO_LIB)/include)" build/nio-test-include
+	soft65c02_unit -b build/test-atari-nio-appkey -i test/atari_nio_appkey_soft65.yaml
 
 # --- the game disk. PicoBoot406 (MyPicoDos's 3-sector boot, standard-speed SIO) loads the
 # first file on the disk and runs it; no DOS. BOOT=Dos25 boots DOS 2.5 instead, which runs
@@ -580,6 +634,6 @@ pc-h89: $(HDRS) src/h89/screens.h
 clean:
 	rm -rf build
 
-.PHONY: all atr atrtest test pc pc-apple2 pc-msdos pc-coco pc-nes pc-adam pc-h89 apple2_text apple2_text-po msdos msdos-img msdos-test msdos-wiremon coco coco-dsk coco-auto nes nestest nes-auto h89 h89-disk h89-wiremon adam adamtest adam-auto intv intvtest intv-auto clean
+.PHONY: FORCE all atr atrtest atari-nio test-atari-nio test-atari-nio-6502 test pc pc-apple2 pc-msdos pc-coco pc-nes pc-adam pc-h89 apple2_text apple2_text-po msdos msdos-img msdos-test msdos-wiremon coco coco-dsk coco-auto nes nestest nes-auto h89 h89-disk h89-wiremon adam adamtest adam-auto intv intvtest intv-auto clean
 .PRECIOUS: $(B)/%.s $(B)/%.o $(A2)/%.s $(A2)/%.o $(COCO)/%.o $(NES)/%.s $(NES)/%.o $(ADAM)/%.o
 .DELETE_ON_ERROR:

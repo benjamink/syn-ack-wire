@@ -1,0 +1,153 @@
+marker $$valid three-byte lobby value$$
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+registers flush
+memory write $_test_case 0x(00)
+memory write $_test_seen 0x(FF)
+memory write $_test_result 0x(FF)
+run $init_harness until CP = $end_init_harness
+assert $_test_seen = 0x00 $$selected case ran$$
+assert $_test_result = 0x00 $$request, result and guards correct$$
+
+marker $$raw transport error$$
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+registers flush
+memory write $_test_case 0x(01)
+memory write $_test_seen 0x(FF)
+memory write $_test_result 0x(FF)
+run $init_harness until CP = $end_init_harness
+assert $_test_seen = 0x01 $$selected case ran$$
+assert $_test_result = 0x00 $$request, result and guards correct$$
+
+marker $$key not found$$
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+registers flush
+memory write $_test_case 0x(02)
+memory write $_test_seen 0x(FF)
+memory write $_test_result 0x(FF)
+run $init_harness until CP = $end_init_harness
+assert $_test_seen = 0x02 $$selected case ran$$
+assert $_test_result = 0x00 $$request, result and guards correct$$
+
+marker $$reply header shorter than ten bytes$$
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+registers flush
+memory write $_test_case 0x(03)
+memory write $_test_seen 0x(FF)
+memory write $_test_result 0x(FF)
+run $init_harness until CP = $end_init_harness
+assert $_test_seen = 0x03 $$selected case ran$$
+assert $_test_result = 0x00 $$request, result and guards correct$$
+
+marker $$nonzero echoed file offset$$
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+registers flush
+memory write $_test_case 0x(04)
+memory write $_test_seen 0x(FF)
+memory write $_test_result 0x(FF)
+run $init_harness until CP = $end_init_harness
+assert $_test_seen = 0x04 $$selected case ran$$
+assert $_test_result = 0x00 $$request, result and guards correct$$
+
+marker $$value exceeds 64 bytes$$
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+registers flush
+memory write $_test_case 0x(05)
+memory write $_test_seen 0x(FF)
+memory write $_test_result 0x(FF)
+run $init_harness until CP = $end_init_harness
+assert $_test_seen = 0x05 $$selected case ran$$
+assert $_test_result = 0x00 $$request, result and guards correct$$
+
+marker $$value truncated by one byte$$
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+registers flush
+memory write $_test_case 0x(06)
+memory write $_test_seen 0x(FF)
+memory write $_test_result 0x(FF)
+run $init_harness until CP = $end_init_harness
+assert $_test_seen = 0x06 $$selected case ran$$
+assert $_test_result = 0x00 $$request, result and guards correct$$
+
+marker $$valid 64-byte boundary value$$
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+registers flush
+memory write $_test_case 0x(07)
+memory write $_test_seen 0x(FF)
+memory write $_test_result 0x(FF)
+run $init_harness until CP = $end_init_harness
+assert $_test_seen = 0x07 $$selected case ran$$
+assert $_test_result = 0x00 $$request, result and guards correct$$
+
+marker $$initialization error skips raw call$$
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+registers flush
+memory write $_test_case 0x(08)
+memory write $_test_seen 0x(FF)
+memory write $_test_result 0x(FF)
+run $init_harness until CP = $end_init_harness
+assert $_test_seen = 0x08 $$selected case ran$$
+assert $_test_result = 0x00 $$request, result and guards correct$$
+
+marker $$nonzero high byte of data length$$
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+registers flush
+memory write $_test_case 0x(09)
+memory write $_test_seen 0x(FF)
+memory write $_test_result 0x(FF)
+run $init_harness until CP = $end_init_harness
+assert $_test_seen = 0x09 $$selected case ran$$
+assert $_test_result = 0x00 $$request, result and guards correct$$
+
+marker $$unsupported response version$$
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+registers flush
+memory write $_test_case 0x(0A)
+memory write $_test_seen 0x(FF)
+memory write $_test_result 0x(FF)
+run $init_harness until CP = $end_init_harness
+assert $_test_seen = 0x0A $$selected case ran$$
+assert $_test_result = 0x00 $$request, result and guards correct$$
+
+marker $$key 0 encodes player name URI$$
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+registers flush
+memory write $_test_case 0x(0B)
+memory write $_test_seen 0x(FF)
+memory write $_test_result 0x(FF)
+run $init_harness until CP = $end_init_harness
+assert $_test_seen = 0x0B $$selected case ran$$
+assert $_test_result = 0x00 $$request, result and guards correct$$
+
+marker $$key 255 encodes ff URI$$
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+registers flush
+memory write $_test_case 0x(0C)
+memory write $_test_seen 0x(FF)
+memory write $_test_result 0x(FF)
+run $init_harness until CP = $end_init_harness
+assert $_test_seen = 0x0C $$selected case ran$$
+assert $_test_result = 0x00 $$request, result and guards correct$$
+
+marker $$valid empty value$$
+memory load atari "${BINARY_PATH}"
+symbols load "${SYMBOLS_PATH}"
+registers flush
+memory write $_test_case 0x(0D)
+memory write $_test_seen 0x(FF)
+memory write $_test_result 0x(FF)
+run $init_harness until CP = $end_init_harness
+assert $_test_seen = 0x0D $$selected case ran$$
+assert $_test_result = 0x00 $$request, result and guards correct$$

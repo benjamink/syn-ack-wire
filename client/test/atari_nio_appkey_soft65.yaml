@@ -1,0 +1,17 @@
+name: SYN-ACK WIRE Atari NIO lobby key independent vectors
+target: none
+compiler: cc65
+config_file: atari_nio_soft65.cfg
+c_flags:
+  - -Osir
+  - -O
+src_files:
+  - atari_nio_appkey_soft65.c
+  - ../src/atari/net_nio_appkey.s
+  - atari_nio_soft65_start.s
+include_paths:
+  - ../build/nio-test-include
+ld_flags:
+  - -t
+  - none
+test_script: atari_nio_appkey_soft65.txt

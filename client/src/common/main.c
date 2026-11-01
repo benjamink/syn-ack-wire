@@ -19,6 +19,11 @@ static unsigned char handle[8], handle_len;
 
 static unsigned char c, e, t0, secs, q0, quiet, helping;
 static unsigned char tps;                /* frames a second: 60, or 50 on a PAL machine */
+#ifdef NIO_BUILD
+unsigned char net_nio_standard_sio(void);
+unsigned char net_nio_restore_sio(void);
+static unsigned char restore_sio_on_title;
+#endif
 
 #define NO_SIGNAL   20                  /* seconds without a frame: say so */
 #define REDIAL      30                  /* ...and hang up and dial again */
@@ -75,6 +80,12 @@ static void title(void)
     if (!link_up)
         status_len = status_code = 0;
     display_title_screen();
+#ifdef NIO_BUILD
+    if (restore_sio_on_title) {
+        (void)net_nio_restore_sio();
+        restore_sio_on_title = 0;
+    }
+#endif
     if (!link_up) {                     /* dial while it shows */
         if (dial()) {
             net_close();
@@ -179,6 +190,9 @@ static void log_off(void)
     for (c = 0; c < 4; ++c)
         token[c] = 0;
     link_up = leaving = refused = 0;
+#ifdef NIO_BUILD
+    restore_sio_on_title = 1;
+#endif
     memcpy(edit, handle, 8);            /* the prompts used it: the handle again */
     edit_len = handle_len;
 }
@@ -195,6 +209,9 @@ static void redial(const char *why)
 /* The game, from joining on. Returns if the table turned out to be full. */
 static void play(void)
 {
+#ifdef NIO_BUILD
+    (void)net_nio_standard_sio();
+#endif
     for (c = 0; c < 8; ++c)
         handle[c] = c < edit_len ? edit[c] : ' ';
     handle_len = edit_len;

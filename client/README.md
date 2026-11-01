@@ -20,6 +20,7 @@ The 8-bit side. The server enforces every rule; the client draws what it is told
 | `src/atari/title_art.h`, `.inc` | The art in screen codes and the static's masks, **generated** by `tools/title_art.py` |
 | `src/atari/input.c` | Keyboard (the OS's last-key byte, no K: handler) and the frame counter |
 | `src/atari/net_sio.s` | Network calls for the Atari: FujiNet `N1:` ($71) over raw SIO |
+| `src/atari/net_nio.c`, `net_nio_sound.s` | Alternative Atari network calls for FujiNet-NIO, selected by `make atari-nio` |
 | `src/atari/ring.s` | `rx_ring` = page 6 ($0600): page-aligned, so the 8-bit indexes wrap for free |
 | `src/atari/game.cfg` | cc65's `atari.cfg` plus 1K-aligned `FONT` and `PM` segments |
 | `src/apple2/display_text.c` | Apple II text screens (apple2_text): 40×24, page 1, normal/inverse/flash |
@@ -109,6 +110,9 @@ make FANCY=1                             # hand-made screens instead of text (on
 make HINTS=0                             # move hints start off (the player can still turn them on)
 make test                                # build/atari/synack-auto.xex: plays by itself, for the emulator
 make atr                                 # build/atari/syn-ack-wire-atari.atr: the game disk (PicoBoot, game, help pages)
+make atari-nio                           # build/atari-nio/syn-ack-wire-atari.atr: FujiNet-NIO disk
+make test-atari-nio                      # host tests for the NIO adapter
+make test-atari-nio-6502                 # soft65c02 tests for its lobby-key routine
 make pc                                  # build/pc/pc-client: the common code on this PC
 make pc-apple2                           # build/pc/pc-apple2: the same with the Apple II's display, for captures
 make msdos WATCOM=dir                    # build/msdos/SYNACK.EXE and SYNACK.HLP: the MS-DOS client (8088 and up)
@@ -132,6 +136,42 @@ Watcom v2 (`2.0 beta Sep 22 2025`), as the FujiNet team builds its DOS programs;
 `~/openwatcom`). The game needs `FUJINET.SYS` (fujinet-rs232) loaded in CONFIG.SYS, from the same firmware version as
 the FujiNet. Intellivision: IntyBASIC 1.5.2 (9393a28), built by `make intv` from its source (`IB_SRC`, default
 `~/Workspace/IntyBASIC`), and jzIntv's `as1600` on PATH.
+
+### Atari FujiNet-NIO build
+
+`make atari-nio` uses the pinned [Atari NIO library release](lib/fujinet-nio/README.md),
+without requiring a workspace or sibling checkout. Set `NIO_VERSION` in the Makefile or on the
+command line to select another release; the build downloads and verifies it if it is absent. Check
+in the resulting versioned folder when updating the pinned release, as for the other platforms.
+The released package uses the compact Atari backend. `NIO_LIB=/path/to/fujinet-nio-lib` overrides it
+with a source checkout and uses that checkout's `build/fujinet-nio-atari.lib`; select and rebuild it with
+`make atari ATARI_BACKEND=compact` or `ATARI_BACKEND=original` in the library checkout. The NIO build has
+its own objects and disk; the default Atari build continues to use legacy FujiNet raw SIO. To target a local
+server, use a fresh build directory so a changed URL cannot reuse old objects:
+
+```sh
+make B=build/atari-nio-local NIO=1 URL=N:TCP://127.0.0.1:6502/ LOBBY_KEY=0 atr
+make test-atari-nio
+make test-atari-nio-6502
+```
+
+The first test uses the host C compiler; the second needs `soft65c02_unit` and cc65. Both use the pinned
+headers and require no other repositories. The NIO adapter converts legacy
+`N:TCP://host:port/` addresses, including lobby AppKeys, to NIO URLs. The adapter reads the lobby's documented
+AppKey file directly with NIO FileDevice, so the lobby and game must share the same NIO persistent storage.
+Reads are nonblocking,
+using PROCEED hints plus a timed fallback; the first outgoing frame is held until TCP accepts it. The library's
+write call can still retry synchronously under backpressure. On a compatible U1MB PBI, this build asks
+the FujiNet to turn HSIO off, then clears the U1MB device and disk speed caches so all devices can
+renegotiate at standard speed. On explicit log-off it restores the captured index after drawing the
+title, and clears the caches again. Starting another game disables HSIO again. Resetting or powering
+off without logging off skips restoration. Without a compatible U1MB PBI the game leaves the FujiNet
+setting alone. The game leaves display interrupts enabled during SIO in both cases; older firmware
+or a failed cache reset may leave HSIO enabled and can cause communication failures at high speed.
+
+Measured with cc65 V2.19 Git 37d4bb24 and the pinned release, both using the public server: the default XEX is
+12,394 bytes and the NIO XEX is 19,767 bytes, an increase of 7,373 bytes. The configured URL changes the size.
+The FileDevice request and normalized URL reuse the receive ring while it is idle.
 
 ## Play it in the emulator
 ```sh
