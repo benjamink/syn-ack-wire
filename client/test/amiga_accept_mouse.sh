@@ -24,12 +24,16 @@ cleanup() {
 for p in $PORT 65501 23499; do
     ss -ltn | grep -q ":$p\b" && { echo "port $p is in use: stopping, not touching it"; exit 2; }
 done
-make -s amiga-test-mouse URL="N:TCP://127.0.0.1:$PORT/" >/dev/null || fail "the autoclick build"
+rm -f build/amiga/synack-amiga-mouse   # never reuse a binary built for another URL
+make -s amiga-test-mouse URL="N:TCP://127.0.0.1:${URLPORT:-$PORT}/" >/dev/null || fail "the autoclick build"
 mkdir -p build/amiga
 python3 test/amiga_server.py --host 127.0.0.1 --port $PORT --bot-delay 0.05 --trace >$LOG 2>&1 &
 SERVER_PID=$!
 sleep 1
 [ -n "${NTSC:-}" ] && export AMIGA_NTSC=true
+# USE_PREFS=1 URLPORT=6598: the client is built for a port nothing listens on and finds the scratch server only through
+# its prefs file (SERVER=), which proves the setting and cannot reach any other server
+[ -n "${USE_PREFS:-}" ] && export AMIGA_PREFS_SERVER="TCP://127.0.0.1:$PORT/"
 tools/run-amiga.sh build/amiga/synack-amiga-mouse >$RUN/rig.out 2>&1 || { cat $RUN/rig.out; fail "the rig did not start"; }
 shot() { python3 tools/amiga_guest.py shot "$PWD/$RUN/$1.png" >/dev/null 2>&1; }
 t=0; cut=0
