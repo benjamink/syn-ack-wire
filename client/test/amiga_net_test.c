@@ -60,6 +60,8 @@ unsigned char ticks(void) { return now; }
 unsigned char ticks_per_sec(void) { return 50; }
 
 /* ---- the harness */
+void amiga_prefs_save(void) { }         /* prefs_io.c's, not under test here */
+
 static int failures, ran;
 #define CHECK(c) do { if (!(c)) { printf("  FAIL %s:%d: %s\n", __FILE__, __LINE__, #c); ++failures; } } while (0)
 #define RUN(t) do { ++ran; printf("%s\n", #t); reset(); t(); } while (0)

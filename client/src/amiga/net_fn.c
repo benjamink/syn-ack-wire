@@ -57,10 +57,13 @@ static unsigned parse(const char *url)
     return (unsigned)port;
 }
 
+void amiga_prefs_save(void);            /* prefs_io.c */
+
 unsigned char net_open(const char *url)
 {
     unsigned port = parse(url);
     unsigned char rc;
+    amiga_prefs_save();                 /* the handle the player dials with */
     rx_head = rx_tail = 0;              /* anything left from an old connection is junk */
     roff = woff = 0;
     quiet = failing = eof = is_open = 0;
@@ -131,9 +134,3 @@ void net_close(void)
     is_open = 0;
 }
 
-/* The FujiNet lobby's AppKeys: none here (the handle's file is src/amiga/prefs.c's) */
-unsigned char net_appkey(unsigned char key)
-{
-    (void)key;
-    return 0;
-}
