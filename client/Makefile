@@ -653,6 +653,11 @@ $(AMIGA_B):
 $(AMIGA_B)/dial: test/amiga/dial.c $(AMIGA_NIOLIB) | $(AMIGA_B)
 	$(AMIGA_CC) $(AMIGA_FLAGS) test/amiga/dial.c $(AMIGA_NIOLIB) -o $@
 
+# the drawing primitives on the rig: tools/run-amiga.sh build/amiga/gfxdemo, then amiga_guest.py shot
+$(AMIGA_B)/gfxdemo: test/amiga/gfxdemo.c src/amiga/gfx.c src/amiga/layout.c $(wildcard src/amiga/*.h) | $(AMIGA_B)
+	$(AMIGA_CC) $(AMIGA_FLAGS) test/amiga/gfxdemo.c src/amiga/gfx.c src/amiga/layout.c -o $@
+	@echo "$@: $$(stat -c %s $@) bytes"
+
 # the game: the common code, the MS-DOS text display drawing into an array (PC_SCREEN) and src/amiga/ putting that on screen
 AMIGASRC = src/common/main.c src/common/game.c src/common/proto.c src/msdos/display_text.c \
            $(addprefix src/amiga/,net_fn.c input.c keys.c render.c present.c start.c sound.c sndlogic.c prefs.c prefs_io.c)

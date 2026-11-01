@@ -1,0 +1,22 @@
+/* Drawing on the game's 5-plane screen: rectangles, bevels, Topaz 8 text. Every call paints its own piece, so the
+ * display functions redraw what changed and nothing is kept in a frame buffer. Coordinates are screen pixels. */
+#ifndef AMIGA_GFX_H
+#define AMIGA_GFX_H
+
+#include "layout.h"
+#include "palette.h"
+
+extern struct layout amiga_layout;      /* filled by gfx_open for the screen it got */
+
+unsigned char gfx_open(unsigned short *width, unsigned short *height);   /* 0 on failure, with nothing left open */
+void gfx_close(void);                   /* the window, then the screen; safe if never opened */
+
+void gfx_rect(const struct rect *r, unsigned char pen);
+void gfx_frame(const struct rect *r, unsigned char pen);                 /* a 1-pixel outline just inside r */
+void gfx_bevel(const struct rect *r, unsigned char fill, unsigned char hi, unsigned char lo);
+void gfx_text(short x, short y, const char *s, unsigned char n, unsigned char pen, unsigned char bg);   /* y: the glyph top */
+void gfx_text_right(short right, short y, const char *s, unsigned char n, unsigned char pen, unsigned char bg);
+void gfx_hatch(const struct rect *r, unsigned char pen_a, unsigned char pen_b);   /* the Black ICE armour */
+void gfx_dim(const struct rect *r, unsigned char pen);                   /* a checkerboard of pen over what is there */
+
+#endif
