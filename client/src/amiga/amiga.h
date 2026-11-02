@@ -9,6 +9,9 @@ void amiga_pointer_set(struct Window *w);    /* the game's arrow for this window
 void amiga_pointer_clear(struct Window *w);  /* the system's back, and the image freed */
 void dialog_sync(void);                 /* open, redraw, change or close the dialog the game state calls for */
 void dialog_quit_ask(unsigned char on); /* the title's quit question, over the dimmed title */
+void amiga_snd_set(unsigned char on);   /* the kept sound switch, at the start */
+void amiga_table_set(unsigned char on); /* the kept view of the seats, at the start */
+void amiga_prefs_exit(void);            /* keep a changed setting (prefs_io.c) */
 unsigned char amiga_snd_on(void);       /* the sound switch, for the menu's tick */
 unsigned char amiga_table_view(void);   /* the seats are shown as a table, for the menu's tick */
 void menus_update(void);                /* the menu strip follows the screen: off under a window, Region only on the title */

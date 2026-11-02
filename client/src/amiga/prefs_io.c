@@ -9,12 +9,14 @@
 #include "../config.h"
 #include "../platform.h"
 #include "../common/game.h"
+#include "amiga.h"
 #include "prefs.h"
 
 static char known[HANDLE_MAX + 1];       /* the handle in the file, as last read or written */
 static char known_server[SERVER_MAX + 1];   /* its server address, "" for none */
 static char picked[SERVER_MAX + 1];         /* the Region menu's choice this run, "" for none: it beats the file */
 static char saved_server[SERVER_MAX + 1];   /* the address the file has */
+static struct prefs_set saved_set = { 0, 0, 1 };   /* the settings the file has: the defaults until it says otherwise */
 
 /* No "insert volume" requester on the Workbench screen behind the game: a failed open just fails. */
 static APTR quiet_dos(void)
@@ -29,7 +31,7 @@ static APTR quiet_dos(void)
  * server it picked) is here the SERVER= address, which main.c dials after "N:"; any other key is none. */
 unsigned char net_appkey(unsigned char key)
 {
-    char file[128];
+    char file[PREFS_FILE_MAX + 13];
     BPTR f;
     LONG got = 0;
     unsigned char n;
@@ -54,6 +56,12 @@ unsigned char net_appkey(unsigned char key)
         return 0;
     prefs_server(file, (unsigned char)got, known_server);
     strcpy(saved_server, known_server);
+    if (key == 0) {                     /* the first look, at the start: the kept settings take effect */
+        prefs_settings(file, (unsigned char)got, &saved_set);
+        hints = saved_set.hints;
+        amiga_snd_set(saved_set.sound);
+        amiga_table_set(saved_set.view);
+    }
     if (key != 0) {
         n = (unsigned char)strlen(known_server);
         memcpy(rx_ring + 2, known_server, n + 1);
@@ -73,22 +81,33 @@ void amiga_set_server(const char *url)
     strcpy(known_server, picked);
 }
 
-void amiga_prefs_save(void)
+static void current(struct prefs_set *now)
 {
-    char file[16 + HANDLE_MAX + SERVER_MAX + 2], name[9];
+    now->view = amiga_table_view();
+    now->hints = hints;
+    now->sound = amiga_snd_on();
+}
+
+static unsigned char same_set(const struct prefs_set *a, const struct prefs_set *b)
+{
+    return a->view == b->view && a->hints == b->hints && a->sound == b->sound;
+}
+
+/* Write the file for `name`, the server and the settings as they are now, unless it already says that. Best effort: a locked
+ * or full disk loses nothing but the memory. */
+static void write_file(const char *handle)
+{
+    char file[PREFS_FILE_MAX + 1], name[9];
+    struct prefs_set now;
     unsigned char i;
     BPTR f;
     APTR was;
 
-    if (!edit_len)
-        return;
-    for (i = 0; i < edit_len && i < HANDLE_MAX; ++i)
-        name[i] = edit[i];
-    name[i] = 0;
-    i = prefs_format(name, known_server, file);
+    current(&now);
+    i = prefs_format(handle, known_server, &now, file);
     file[i] = 0;
-    prefs_parse(file, i, name);         /* as the file would give it back */
-    if (strcmp(name, known) == 0 && strcmp(known_server, saved_server) == 0)
+    prefs_parse(file, i, name);         /* the handle as the file would give it back */
+    if (strcmp(name, known) == 0 && strcmp(known_server, saved_server) == 0 && same_set(&now, &saved_set))
         return;                         /* nothing new: spare the floppy */
     was = quiet_dos();
     if ((f = Open((UBYTE *)PREFS_FILE, MODE_NEWFILE)) != 0) {
@@ -96,6 +115,30 @@ void amiga_prefs_save(void)
         Close(f);
         strcpy(known, name);
         strcpy(saved_server, known_server);
+        saved_set = now;
     }
     ((struct Process *)FindTask(0))->pr_WindowPtr = was;
+}
+
+/* Remember the handle just played under (and the settings). */
+void amiga_prefs_save(void)
+{
+    char name[9];
+    unsigned char i;
+
+    if (!edit_len)
+        return;
+    for (i = 0; i < edit_len && i < HANDLE_MAX; ++i)
+        name[i] = edit[i];
+    name[i] = 0;
+    write_file(name);
+}
+
+/* On the way out: a setting changed in play (hints, sound, the seats' view) is kept too. */
+void amiga_prefs_exit(void)
+{
+    struct prefs_set now;
+    current(&now);
+    if (!same_set(&now, &saved_set))
+        write_file(known);
 }

@@ -102,6 +102,12 @@ void __fastcall__ play_chord(unsigned char n)
         start(n);
 }
 
+void amiga_snd_set(unsigned char on)
+{
+    if (st.on != on)
+        snd_toggle();
+}
+
 unsigned char amiga_snd_on(void)
 {
     return st.on;

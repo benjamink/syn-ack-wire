@@ -8,6 +8,13 @@
 #define PREFS_FILE "S:SynAckWire.prefs"
 #define HANDLE_MAX 8
 #define SERVER_MAX 60                   /* longer addresses are ignored, not cut */
+#define PREFS_FILE_MAX 115              /* the longest file prefs_format writes: HANDLE= 16, SERVER= 68, VIEW=TABLE 11, HINTS=OFF 10, SOUND=OFF 10 */
+
+/* The settings that are kept, as lines VIEW=TABLE|CARDS, HINTS=ON|OFF and SOUND=ON|OFF; a missing line, or a value that is
+ * neither of the two, leaves the default (cards, hints off, sound on). */
+struct prefs_set { unsigned char view, hints, sound; };     /* view 1 = the table */
+void prefs_defaults(struct prefs_set *s);
+void prefs_settings(const char *file, unsigned char len, struct prefs_set *s);
 
 /* The handle from the file's `len` bytes, upcased, only what the title lets a player type (above a space, up to Z),
  * at most HANDLE_MAX, NUL-ended in `handle` (9 bytes). Returns its length; 0 for no HANDLE line. */
@@ -18,8 +25,8 @@ unsigned char prefs_parse(const char *file, unsigned char len, char *handle);
  * or it is too long. */
 unsigned char prefs_server(const char *file, unsigned char len, char *url);
 
-/* The file for `handle` (NUL-ended, filtered the same way) and `server` ("" for none: no SERVER line) in `out` (at least
- * 17 + 8 + SERVER_MAX bytes); returns its length. */
-unsigned char prefs_format(const char *handle, const char *server, char *out);
+/* The file for `handle` (NUL-ended, filtered the same way), `server` ("" for none: no SERVER line) and the settings, in `out`
+ * (PREFS_FILE_MAX bytes); returns its length. */
+unsigned char prefs_format(const char *handle, const char *server, const struct prefs_set *set, char *out);
 
 #endif

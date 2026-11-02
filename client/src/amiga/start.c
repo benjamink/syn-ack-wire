@@ -32,6 +32,7 @@ __attribute__((constructor)) static void amiga_init(void)
 
 __attribute__((destructor)) static void amiga_exit(void)
 {
+    amiga_prefs_exit();                 /* a setting changed in play is kept (before the windows go) */
     if (input_open)
         amiga_input_close();
     if (display_open || IntuitionBase)

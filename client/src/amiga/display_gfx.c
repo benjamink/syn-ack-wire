@@ -565,6 +565,13 @@ static void paint_table_ntsc(void)
     }
 }
 
+void amiga_table_set(unsigned char on)
+{
+#ifndef TABLEVIEW
+    table_view = on;
+#endif
+}
+
 unsigned char amiga_in_play(void)
 {
     return field;
