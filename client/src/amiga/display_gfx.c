@@ -326,6 +326,8 @@ static void hives_now(void)
             gfx_rect(&row, bg);
         gfx_text(row.x, row.y, &syn_letter[j], 1, PEN_BG0, PEN_SYN + j);   /* the colour, with the letter that picks it */
         n = hive_size[j];
+        if (n >= RULE_SAFESIZE && pen == PEN_TEXT)
+            pen = PEN_STEEL;            /* Black ICE: grey, as on the grid */
         say(row.x + 10, row.y, syn_short[j], strlen(syn_short[j]), 8, pen, bg);
         if (n) {
             l = number(n, 0);
@@ -731,14 +733,14 @@ static void prompt_now(void)
             }
             break;
         case 'S': ask = dialog_holding() ? "GAME OVER. PRESS A KEY" : "START WITH HOW MANY SEATS? 2-6"; break;
-        case 'P': ask = "RUN WHICH " T_EXPLOIT "? PRESS 1-6"; break;
+        case 'P': ask = "RUN WHICH " T_EXPLOIT "? 1-6"; break;
         case 'F': ask = "PICK A LIT SYNDICATE"; break;
         case 'K': ask = pr[1] ? "TIE! ABSORB WHICH NEXT?" : "TIE! WHICH SURVIVES?"; break;
         case 'D':
             ask = step ? T_SWAP " 2 FOR 1, HOW MANY? " : T_CASHOUT " HOW MANY? ";
             break;
         case 'B':
-            ask = step ? T_NULLROUTE " AND END THE GAME? Y/N" : "BUY UP TO 3 " T_COIN ": ";
+            ask = step ? T_NULLROUTE ": END GAME? Y/N" : "BUY UP TO 3 " T_COIN ": ";
             break;
         }
     }
