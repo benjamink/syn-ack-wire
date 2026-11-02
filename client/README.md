@@ -1049,8 +1049,8 @@ graphics, by mouse or keyboard; menus, the Region list, palette effects and inst
 - **Handle:** kept in `S:SynAckWire.prefs` (`HANDLE=NAME`), read for the title and written when the hello goes out with it, only if it changed. AmigaDOS requesters are off while it is touched, so a write-protected floppy loses the memory and nothing else.
 - **Sound:** chords as short notes through `audio.device`, the same pitches as the PC speaker's, on one channel (a write wants a single one); silence if the device is
   busy. The rules (which chord cuts which) are tested on the host; **the sound has not been heard**, only run.
-- **Testing:** the host tests (`make test-amiga-net test-amiga-keys test-amiga-present test-amiga-sound
-  test-amiga-prefs`); `test/amiga_accept.sh` plays a whole autoplay game against bots on an emulated A500 on spare
+- **Testing:** the host tests (`make test-amiga-net test-amiga-keys test-amiga-sound
+  test-amiga-prefs test-amiga-layout test-amiga-ui`); `test/amiga_accept.sh` plays a whole autoplay game against bots on an emulated A500 on spare
   ports (PAL about 160 s, `NTSC=1` about 160 s, `CUT=1` stalls the serial bridge for 30 s, the server sees AMIGA leave
   and rejoin its seat, and the game ends); `test/amiga_accept_mouse.sh` does the same by clicks (about 120 s). `tools/run-amiga.sh` is the rig (`AMIGA_NTSC=true` for NTSC).
   Amiberry's serial port is a TCP pipe: real baud-rate overruns on a cable are **not** tested; that is on the hardware checklist.
