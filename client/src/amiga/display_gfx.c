@@ -30,6 +30,7 @@ static unsigned char title_up;          /* the title's loop is running: set on e
 static char logl[3][WIDE_CH + 2];       /* the log's three lines: a move is a spike, a spread and up to three buys */
 static unsigned char logn[3];
 static unsigned char kit_shown[RULE_KITSIZE], kit_valid;
+static unsigned char kit_pick;          /* the kit panel shows the pick's message, not the kit */
 static unsigned char marked;            /* the syndicate rows lit for a pick */
 static unsigned char blink = NONE, blink_t, done = NONE, lit;
 static unsigned char others_top;
@@ -317,14 +318,16 @@ static void hives_now(void)
     char ch;
 
     marked = want;
-    gfx_bevel(p, PEN_BG1, PEN_EDGE, PEN_BG0);
+    gfx_bevel(p, PEN_BG1, want ? PEN_AMBER : PEN_EDGE, PEN_BG0);     /* a pick: the box to look at */
     gfx_text(p->x + 4, p->y + 2, T_HIVE_P, sizeof T_HIVE_P - 1, PEN_CYAN, PEN_BG1);
     for (j = 0; j < NSYN; ++j) {
-        unsigned char lit = want >> j & 1, bg = lit ? PEN_BG2 : PEN_BG1;
+        unsigned char lit = want >> j & 1, bg = lit ? PEN_EDGE : PEN_BG1;
         unsigned char pen = !want || lit ? (lit ? PEN_WHITE : PEN_TEXT) : PEN_DIM;      /* a pick: the choices stand out, the rest recede */
         row = LY.syn_row[j];
-        if (lit)
+        if (lit) {
             gfx_rect(&row, bg);
+            gfx_frame(&row, PEN_AMBER);
+        }
         gfx_text(row.x, row.y, &syn_letter[j], 1, PEN_BG0, PEN_SYN + j);   /* the colour, with the letter that picks it */
         n = hive_size[j];
         if (n >= RULE_SAFESIZE && pen == PEN_TEXT)
@@ -344,12 +347,22 @@ static void hives_now(void)
 static void draw_kit(unsigned char force)
 {
     const struct rect *p = &LY.kit_panel;
-    unsigned char j, v, same = kit_valid && !force;
+    unsigned char j, v, pick = pr_kind == 'F' || pr_kind == 'K', same = kit_valid && !force && pick == kit_pick;
     char b[2];
-    for (j = 0; same && j < RULE_KITSIZE; ++j)
+    for (j = 0; same && !pick && j < RULE_KITSIZE; ++j)
         same = kit_shown[j] == kit[j];
     if (same)
         return;
+    kit_pick = pick;
+    if (pick) {                         /* the pick: this panel says what to do, and the syndicates' box is the one to look at */
+        gfx_bevel(p, PEN_BG1, PEN_AMBER, PEN_BG0);
+        gfx_text(p->x + 8, p->y + 5, pr_kind == 'F' ? "PICK A FREE" : "TIE! PICK", pr_kind == 'F' ? 11 : 9, PEN_AMBER, PEN_BG1);
+        gfx_text(p->x + 8, p->y + 15, pr_kind == 'F' ? "SYNDICATE" : "ONE OF THE", pr_kind == 'F' ? 9 : 10, PEN_AMBER, PEN_BG1);
+        gfx_text(p->x + 8, p->y + 25, pr_kind == 'F' ? "FROM THE" : "BRIGHT ROWS", pr_kind == 'F' ? 8 : 11, PEN_WHITE, PEN_BG1);
+        gfx_text(p->x + 8, p->y + 35, pr_kind == 'F' ? "BRIGHT ROWS" : "", pr_kind == 'F' ? 11 : 0, PEN_WHITE, PEN_BG1);
+        kit_valid = 1;
+        return;
+    }
     gfx_bevel(p, PEN_BG1, PEN_EDGE, PEN_BG0);
     gfx_text(p->x + 4, p->y + 2, T_KIT, sizeof T_KIT - 1, PEN_CYAN, PEN_BG1);
     for (j = 0; j < RULE_KITSIZE; ++j) {
@@ -735,7 +748,7 @@ static void prompt_now(void)
             break;
         case 'S': ask = dialog_holding() ? "GAME OVER. PRESS A KEY" : "START WITH HOW MANY SEATS? 2-6"; break;
         case 'P': ask = "RUN WHICH " T_EXPLOIT "? 1-6"; break;
-        case 'F': ask = "PICK A LIT SYNDICATE"; break;
+        case 'F': ask = "PICK A FREE SYNDICATE"; break;
         case 'K': ask = pr[1] ? "TIE! ABSORB WHICH NEXT?" : "TIE! WHICH SURVIVES?"; break;
         case 'D':
             ask = step ? T_SWAP " 2 FOR 1, HOW MANY? " : T_CASHOUT " HOW MANY? ";
