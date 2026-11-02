@@ -6,6 +6,7 @@ struct Window;
 extern struct Window *amiga_win;        /* the game window; NULL until start.c has opened it */
 
 void amiga_pointer_set(struct Window *w);    /* the game's arrow for this window */
+void pointer_busy(unsigned char on);          /* an hourglass for the pointer while a call may wait; nests */
 void amiga_pointer_clear(struct Window *w);  /* the system's back, and the image freed */
 void dialog_sync(void);                 /* open, redraw, change or close the dialog the game state calls for */
 void dialog_quit_ask(unsigned char on); /* the title's quit question, over the dimmed title */

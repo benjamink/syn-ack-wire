@@ -58,6 +58,21 @@ static unsigned parse(const char *url)
 }
 
 void amiga_prefs_save(void);            /* prefs_io.c */
+void pointer_busy(unsigned char on);    /* pointer.c: the hourglass while a call may wait */
+
+static unsigned char open_session(unsigned port)
+{
+    unsigned char rc;
+    if (!inited) {
+        if ((rc = fn_init()) != FN_OK)
+            return rc;
+        inited = 1;
+    }
+    if ((rc = fn_tcp_open(&sess, host, port)) != FN_OK)
+        return rc;
+    is_open = 1;
+    return 0;
+}
 
 unsigned char net_open(const char *url)
 {
@@ -68,15 +83,10 @@ unsigned char net_open(const char *url)
     quiet = failing = eof = is_open = 0;
     if (!port)
         return 1;
-    if (!inited) {
-        if ((rc = fn_init()) != FN_OK)
-            return rc;
-        inited = 1;
-    }
-    if ((rc = fn_tcp_open(&sess, host, port)) != FN_OK)
-        return rc;
-    is_open = 1;
-    return 0;
+    pointer_busy(1);                    /* dialling can take seconds; polling and sending are quick and stay as they are */
+    rc = open_session(port);
+    pointer_busy(0);
+    return rc;
 }
 
 unsigned char net_poll(void)
@@ -131,8 +141,11 @@ unsigned char net_send(unsigned char len)
 
 void net_close(void)
 {
-    if (is_open)
+    if (is_open) {
+        pointer_busy(1);
         fn_close(sess);
+        pointer_busy(0);
+    }
     is_open = 0;
 }
 

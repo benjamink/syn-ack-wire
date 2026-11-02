@@ -16,6 +16,7 @@ static uint16_t open_port;
 static uint32_t last_read_off, last_write_off;
 static uint16_t biggest_read_request;
 static uint8_t open_rc;
+static int busy_depth, busy_on, busy_off, busy_during_open, busy_during_close, busy_bad;
 
 static void script_clear(void) { memset(script, 0, sizeof script); nscript = cur = 0; cur_used = 0; }
 static void script_add(uint8_t rc, const char *bytes, uint16_t n, uint8_t flags)
@@ -25,8 +26,10 @@ static void script_add(uint8_t rc, const char *bytes, uint16_t n, uint8_t flags)
 }
 
 uint8_t fn_init(void) { return FN_OK; }
+static int in_open_seen_busy, in_close_seen_busy;
 uint8_t fn_tcp_open(fn_handle_t *h, const char *host, uint16_t port)
 {
+    in_open_seen_busy = busy_depth > 0;
     ++opens; strncpy(open_host, host, sizeof open_host - 1); open_port = port; *h = 7;
     return open_rc;
 }
@@ -52,7 +55,7 @@ uint8_t fn_read(fn_handle_t h, uint32_t off, uint8_t *buf, uint16_t max, uint16_
     if (cur_used == s->n) { *flags = s->flags; ++cur; cur_used = 0; }
     return FN_OK;
 }
-uint8_t fn_close(fn_handle_t h) { (void)h; ++closes; return FN_OK; }
+uint8_t fn_close(fn_handle_t h) { (void)h; in_close_seen_busy = busy_depth > 0; ++closes; return FN_OK; }
 
 /* ---- the platform's clock, as the test drives it */
 static unsigned char now;
@@ -61,6 +64,10 @@ unsigned char ticks_per_sec(void) { return 50; }
 
 /* ---- the harness */
 static int saves;
+void pointer_busy(unsigned char on)       /* pointer.c's, counted here */
+{
+    if (on) { ++busy_on; ++busy_depth; } else { ++busy_off; if (--busy_depth < 0) ++busy_bad; }
+}
 void amiga_prefs_save(void) { ++saves; }    /* prefs_io.c's, counted here */
 
 static int failures, ran;
@@ -70,12 +77,48 @@ static int failures, ran;
 static void reset(void)
 {
     saves = 0;
+    busy_depth = busy_on = busy_off = busy_during_open = busy_during_close = busy_bad = 0;
     script_clear();
     opens = reads = writes = closes = 0; open_host[0] = 0; open_port = 0; open_rc = FN_OK;
     last_read_off = last_write_off = 0; biggest_read_request = 0; now = 0;
     rx_head = rx_tail = 0;
 }
 static void open_ok(void) { CHECK(net_open("N:TCP://127.0.0.1:6599/") == 0); }
+
+static void test_open_shows_the_busy_pointer_and_puts_it_back(void)
+{
+    open_ok();
+    CHECK(busy_on == 1 && busy_off == 1 && busy_depth == 0);
+    CHECK(in_open_seen_busy);           /* the pointer was busy while the call was made */
+}
+static void test_a_failed_open_puts_it_back_too(void)
+{
+    open_rc = FN_ERR_NOT_READY;
+    CHECK(net_open("N:TCP://127.0.0.1:6599/") != 0);
+    CHECK(busy_on == 1 && busy_off == 1 && busy_depth == 0);
+}
+static void test_a_bad_url_never_raises_it(void)
+{
+    CHECK(net_open("N:TCP://nowhere/") != 0);
+    CHECK(busy_on == busy_off && busy_depth == 0);
+}
+static void test_close_is_busy_only_when_open(void)
+{
+    open_ok();
+    busy_on = busy_off = 0;
+    net_close();
+    CHECK(busy_on == 1 && busy_off == 1 && busy_depth == 0 && in_close_seen_busy);
+    net_close();                        /* already closed: nothing to wait for */
+    CHECK(busy_on == 1 && busy_off == 1);
+}
+static void test_polling_never_flickers_the_pointer(void)
+{
+    open_ok();
+    busy_on = busy_off = 0;
+    script_add(FN_OK, "ab", 2, 0);
+    now = 10; net_poll(); now = 20; net_poll(); net_send(1);
+    CHECK(busy_on == 0 && busy_off == 0);
+}
 
 static void test_url_parsed(void)
 {
@@ -244,6 +287,8 @@ static void test_close(void)
 
 int main(void)
 {
+    RUN(test_open_shows_the_busy_pointer_and_puts_it_back); RUN(test_a_failed_open_puts_it_back_too);
+    RUN(test_a_bad_url_never_raises_it); RUN(test_close_is_busy_only_when_open); RUN(test_polling_never_flickers_the_pointer);
     RUN(test_url_parsed); RUN(test_url_without_port_rejected); RUN(test_open_failure_passed_on);
     RUN(test_split_frame_kept); RUN(test_not_ready_is_quiet); RUN(test_quiet_paces_the_asking);
     RUN(test_data_polls_at_once); RUN(test_send_wakes_the_poll); RUN(test_ring_never_overruns); RUN(test_wrap);
