@@ -65,13 +65,14 @@ The 8-bit side. The server enforces every rule; the client draws what it is told
 | `src/adam/title_art.h` | The Atari's title art in the NES's box glyphs, **generated** by `tools/title_art.py n 0` |
 | `src/amiga/net_fn.c` | Network calls for the Amiga: FujiNet NIO through fujinet-nio-lib (a prebuilt archive, `FUJINET_NIO_LIB`), `fujinet-nio.device` loaded by the user's startup |
 | `src/amiga/input.c`, `keys.c` | Amiga: keys from the window's raw key events (`console.device` makes the letters; `keys.c` is the map, tested on the host) and `ticks()` from a vertical-blank server, 50 or 60 a second |
-| `src/amiga/present.c`, `render.c` | Amiga: the MS-DOS text display's 40×24 cells (it draws into `pc_screen`) shown in Topaz 8 on a 320-wide custom screen, only the changed runs; `render.c` finds them (tested on the host) |
+| `src/amiga/gfx.c`, `display_gfx.c`, `dialog.c`, `pointer.c` | Amiga: the 5-plane 320×256 (PAL) or ×200 (NTSC) screen and its drawing primitives; the circuit-board display (each `display_*` marks what it paints, `display_idle` paints once per pass); the buy, question, hive and seat windows; the pointer |
+| `src/amiga/layout.c`, `ui.c` | Amiga: where every widget is (PAL and NTSC) and what a click on it types (the keys the keyboard would), tested on the host |
 | `src/amiga/start.c` | Amiga: opens the libraries, the screen and the keys before `main()`, and closes whatever opened after it |
 | `src/amiga/sound.c`, `sndlogic.c` | Amiga: chords through `audio.device`, a note per queued write; `sndlogic.c` is which chord wins and the notes' periods (tested on the host) |
 | `src/amiga/prefs.c`, `prefs_io.c` | Amiga: the handle kept in `S:SynAckWire.prefs`, and `net_appkey` reading it |
 | `lib/fujinet-lib/` | fujinet-lib, a pinned copy (version and checksum in its README) |
-| `test/amiga_*_test.c`, `amiga_fake/` | Host tests for the Amiga layers (`make test-amiga-net test-amiga-keys test-amiga-present test-amiga-sound test-amiga-prefs`), the network one against a scripted fake of fujinet-nio-lib |
-| `test/amiga_accept.sh`, `amiga_server.py` | A whole autoplay game on the emulated A500 (`NTSC=1`, `CUT=1`); the scratch server says GAME OVER in its log |
+| `test/amiga_*_test.c`, `amiga_fake/` | Host tests for the Amiga layers (`make test-amiga-net test-amiga-keys test-amiga-sound test-amiga-prefs test-amiga-layout test-amiga-ui`), the network one against a scripted fake of fujinet-nio-lib |
+| `test/amiga_accept.sh`, `amiga_accept_mouse.sh`, `amiga_server.py` | A whole autoplay game on the emulated A500 by keys, or by clicks on the widgets (`NTSC=1`, `CUT=1`); the scratch server says GAME OVER in its log |
 | `tools/amiga_mock.py`, `tools/test_amiga_mock.py` | The Amiga look drawn as PNGs at the real size (PAL and NTSC; `make amiga-mock`) and its 32-colour palette: `--header` writes `src/amiga/palette.h` (**generated**) |
 | `test/amiga/dial.c`, `test/amiga_rig_selfcheck.sh`, `tools/run-amiga.sh`, `amiga_guest.py` | The run rig: a stock A500 (Kickstart 1.3) in Amiberry against FujiNet NIO, and the check that it works |
 | `test/wiremon.c` | Protocol monitor; proves the network layer before any game screens exist |
@@ -1009,7 +1010,7 @@ from TNFS, as M.U.L.E.'s Intellivision client is booted); `synack.bin` and `syna
 | fujinet-lib 5.0.0 | 1712 | open/status/read_nb/write/close plus the cc65 runtime and memcpy/memmove it pulls in; the test and the library have since been removed from the repo |
 | `wiremon.xex` | 2982 | whole file, including cc65's Atari startup code |
 | **amiga** (2026-11-01, m68k gcc 15, `-Os`, nix13) | | |
-| `syn-ack-wire-amiga` | 36552 | whole file; text 26240, data 80, bss 15420 (the receive ring, the 40×24 cells and their drawn copy, the game state); 284912 bytes of chip RAM are free after the broker loads on a stock A500 |
+| `syn-ack-wire-amiga` | 52840 | whole file; text 39684, data 76, bss 4500 (step 2, graphics and mouse; 37032 in step 1 with the text display); about 280 KB of chip RAM stay free with the screen open |
 | the screen | 20480 | chip RAM: 320×256, two bitplanes (PAL; 16000 on NTSC's 200 lines), opened by `start.c` |
 
 ## Tested (atari800 7.2.1 + FujiNet-PC 1.6 + server, NetSIO)
@@ -1027,30 +1028,31 @@ from TNFS, as M.U.L.E.'s Intellivision client is booted); `synack.bin` and `syna
 
 ## Amiga (amiga)
 
-A stock A500 with Kickstart and Workbench 1.3 or later, 512 KB, the FujiNet on the serial port. This is step 1 of
-the Amiga client (`docs/superpowers/specs/2026-11-01-amiga-client-design.md`): the game plays, in the MS-DOS text
-screens; the circuit-board graphics, the mouse, menus and instruction pages are the next steps. The screen's title bar is hidden (`ShowTitle`), or row 0 would lie under it on NTSC.
+A stock A500 with Kickstart and Workbench 1.3 or later, 512 KB, the FujiNet on the serial port. This is step 2 of
+the Amiga client (`docs/superpowers/specs/2026-11-01-amiga-client-design.md`): the game plays on the circuit-board
+graphics, by mouse or keyboard; menus, the Region list, palette effects and instruction pages are step 3. The screen's title bar is hidden (`ShowTitle`), or row 0 would lie under it on NTSC.
 
 - **Build:** `make amiga` gives `build/amiga/syn-ack-wire-amiga`. Needs `m68k-amigaos-gcc` (`AMIGA_BIN`, default
   `/opt/amiga/bin`) and the prebuilt fujinet-nio-lib (`make -C $FUJINET_NIO_LIB amiga`; the library is read, never changed).
   The C runtime is libnix's `nix13`, not clib2, whose start-up opens `utility.library`, which Kickstart 1.3 lacks.
-- **What runs:** the common code, `src/msdos/display_text.c` built with `PC_SCREEN=pc_screen` (it fills an array of
-  cells instead of video memory), and `src/amiga/`. `present.c` shows the array in Topaz 8 on a 320-wide screen (256 lines
-  PAL, 200 NTSC, from `GfxBase->NormalDisplayRows`), drawing only the cells that changed, in runs. The 40×24 game
-  is centred; 24 rows of 8 fit both.
+- **What runs:** the common code and `src/amiga/`. `display_gfx.c` paints the 12×9 grid, hives, seats, three log lines
+  and prompt strip on a 32-colour, 5-plane 320-wide screen (256 lines PAL, 200 NTSC, from
+  `GfxBase->NormalDisplayRows`); there is no frame buffer, each `display_*` paints its piece, coalesced once per pass.
+  Dialogs save the area under them to chip RAM and put it back. On NTSC the seat area shows you and the seat to move,
+  and the others as a scrolling list. The last move blinks for a few seconds.
 - **Network:** `fujinet-nio.device` must already be loaded (`fujinet-load-resident`, from the user's startup). Replies
   are read in pieces of at most 128 bytes, polled about ten times a second while quiet; a dead line is reported after a
   3 second grace, and the common code redials with the seat token.
 - **Keys:** F1 or Help or `?` the instructions (not yet: the pages are step 3), F2 move hints, F3 sound, Return, Backspace,
-  Delete, Esc; cursor left and right page. Amiga-key chords are left to the menus. The mouse does nothing yet.
+  Delete, Esc; cursor left and right page. Amiga-key chords are left to the menus. The mouse: the left button presses a widget (a kit node plays it, a hive node or a syndicate chooses, Buy/Undo/Yes/No/OK and the steppers in the windows; on the title JACK-IN and the buttons); the right button is Cancel. A press is debounced so a double click never queues a flood of keys.
 - **Server:** the public one is built in (`make amiga URL=N:TCP://host:port/` builds for another). A player can point the client elsewhere without rebuilding: a line `SERVER=TCP://host:port/` in `S:SynAckWire.prefs` (an `N:` in front is accepted; an address that is not `TCP://` or is over 60 characters is ignored) is dialled instead, and kept when the handle is saved. Run your own server with `cd server && python3 -u serve.py --host 127.0.0.1 --port 6599 --trace`. On the rig, `AMIGA_PREFS_SERVER=TCP://127.0.0.1:6599/` writes that line first; the acceptance scripts take `USE_PREFS=1 URLPORT=6598` to build for a port nothing listens on and find the scratch server only through the prefs file.
 - **Handle:** kept in `S:SynAckWire.prefs` (`HANDLE=NAME`), read for the title and written when the hello goes out with it, only if it changed. AmigaDOS requesters are off while it is touched, so a write-protected floppy loses the memory and nothing else.
 - **Sound:** chords as short notes through `audio.device`, the same pitches as the PC speaker's, on one channel (a write wants a single one); silence if the device is
   busy. The rules (which chord cuts which) are tested on the host; **the sound has not been heard**, only run.
 - **Testing:** the host tests (`make test-amiga-net test-amiga-keys test-amiga-present test-amiga-sound
   test-amiga-prefs`); `test/amiga_accept.sh` plays a whole autoplay game against bots on an emulated A500 on spare
-  ports (PAL about 210 s, `NTSC=1` about 330 s, `CUT=1` stalls the serial bridge for 30 s, the server sees AMIGA leave
-  and rejoin its seat, and the game ends). `tools/run-amiga.sh` is the rig (`AMIGA_NTSC=true` for NTSC).
+  ports (PAL about 160 s, `NTSC=1` about 160 s, `CUT=1` stalls the serial bridge for 30 s, the server sees AMIGA leave
+  and rejoin its seat, and the game ends); `test/amiga_accept_mouse.sh` does the same by clicks (about 120 s). `tools/run-amiga.sh` is the rig (`AMIGA_NTSC=true` for NTSC).
   Amiberry's serial port is a TCP pipe: real baud-rate overruns on a cable are **not** tested; that is on the hardware checklist.
 - **Quit:** Esc on the title, then Y (`platform_quit` is `exit(0)`; the destructors close everything). Not yet run in the emulator.
 - **Known gaps:** no instruction pages (F1 says so); `void main` returns no exit code; the loop never waits, so it uses all the CPU a stock A500 has (deferred: `WaitTOF()` in `in_key`).
