@@ -72,6 +72,7 @@ void layout_make(struct layout *l, unsigned short height)
         set(&l->others, 212, 137, 104, 28);
         set(&l->scroll_up, 304, 139, 9, 12);
         set(&l->scroll_down, 304, 152, 9, 12);
+        set(&l->seats_area, 0, 137, 320, 28);
     } else {
         set(&l->syn_panel, 218, 12, 98, 80);
         set(&l->kit_panel, 218, 96, 98, 62);
@@ -81,6 +82,7 @@ void layout_make(struct layout *l, unsigned short height)
         l->seat_cards = RULE_MAXPLAYERS;
         for (i = 0; i < RULE_MAXPLAYERS; ++i)
             set(&l->seat[i], 4 + (i % 3) * 105, 161 + (i / 3) * 31, 102, 29);
+        set(&l->seats_area, 0, 160, 320, 62);
     }
     dialogs(l, ntsc);
     title_buttons(l);

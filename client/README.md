@@ -1010,7 +1010,7 @@ from TNFS, as M.U.L.E.'s Intellivision client is booted); `synack.bin` and `syna
 | fujinet-lib 5.0.0 | 1712 | open/status/read_nb/write/close plus the cc65 runtime and memcpy/memmove it pulls in; the test and the library have since been removed from the repo |
 | `wiremon.xex` | 2982 | whole file, including cc65's Atari startup code |
 | **amiga** (2026-11-01, m68k gcc 15, `-Os`, nix13) | | |
-| `syn-ack-wire-amiga` | 52840 | whole file; text 39684, data 76, bss 4500 (step 2, graphics and mouse; 37032 in step 1 with the text display); about 280 KB of chip RAM stay free with the screen open |
+| `syn-ack-wire-amiga` | 55432 | whole file; text 42232, data 76, bss 4500 (step 2, graphics and mouse; 37032 in step 1 with the text display); about 280 KB of chip RAM stay free with the screen open |
 | the screen | 20480 | chip RAM: 320×256, two bitplanes (PAL; 16000 on NTSC's 200 lines), opened by `start.c` |
 
 ## Tested (atari800 7.2.1 + FujiNet-PC 1.6 + server, NetSIO)
@@ -1043,7 +1043,7 @@ graphics, by mouse or keyboard; menus, the Region list, palette effects and inst
 - **Network:** `fujinet-nio.device` must already be loaded (`fujinet-load-resident`, from the user's startup). Replies
   are read in pieces of at most 128 bytes, polled about ten times a second while quiet; a dead line is reported after a
   3 second grace, and the common code redials with the seat token.
-- **Keys:** F1 or Help or `?` the instructions (not yet: the pages are step 3), F2 move hints, F3 sound, Return, Backspace,
+- **Keys:** F1 or Help or `?` the instructions (not yet: the pages are step 3), F2 move hints, F3 sound, F4 seats as cards or as a table (a click on the seats does the same; PAL shows every netrunner with a header of syndicate letters, NTSC three rows: you, the seat to move, and the others one at a time under the arrows; not kept between runs), Return, Backspace,
   Delete, Esc; cursor left and right page. Amiga-key chords are left to the menus. The mouse: the left button presses a widget (a kit node plays it, a hive node or a syndicate chooses, Buy/Undo/Yes/No/OK and the steppers in the windows; on the title JACK-IN and the buttons); the right button is Cancel. A press is debounced so a double click never queues a flood of keys.
 - **Server:** the public one is built in (`make amiga URL=N:TCP://host:port/` builds for another). A player can point the client elsewhere without rebuilding: a line `SERVER=TCP://host:port/` in `S:SynAckWire.prefs` (an `N:` in front is accepted; an address that is not `TCP://` or is over 60 characters is ignored) is dialled instead, and kept when the handle is saved. Run your own server with `cd server && python3 -u serve.py --host 127.0.0.1 --port 6599 --trace`. On the rig, `AMIGA_PREFS_SERVER=TCP://127.0.0.1:6599/` writes that line first; the acceptance scripts take `USE_PREFS=1 URLPORT=6598` to build for a port nothing listens on and find the scratch server only through the prefs file.
 - **Handle:** kept in `S:SynAckWire.prefs` (`HANDLE=NAME`), read for the title and written when the hello goes out with it, only if it changed. AmigaDOS requesters are off while it is touched, so a write-protected floppy loses the memory and nothing else.

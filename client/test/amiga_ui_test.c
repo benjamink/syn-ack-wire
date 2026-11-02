@@ -223,7 +223,7 @@ static void test_no_prompt_no_key(void)
 {
     pr_kind = 0; kit[0] = 5;
     CHECK(click_node(&pal, 5) == 0);
-    CHECK(click_rect(&pal, &pal.btn[BTN_BUY], UI_LEFT) == 0);
+    CHECK(click_rect(&pal, &pal.btn[BTN_BUY], UI_LEFT) == 0 || keys[0] == AK_TABLE);   /* the fixture's buttons lie over the seats */
     CHECK(click_rect(&pal, &pal.syn_row[1], UI_LEFT) == 0);
 }
 static void test_other_seats_turn_no_key(void)
@@ -257,6 +257,26 @@ static void test_same_answers_pal_and_ntsc(void)
     CHECK(click_rect(&ntsc, &ntsc.syn_row[3], UI_LEFT) == 1 && keys[0] == 'I');
 }
 
+static void test_seat_area_click_flips_the_view(void)
+{
+    struct rect *a = &pal.seats_area;
+    pr_kind = 0;                                                /* in play, nothing asked */
+    CHECK(click_rect(&pal, a, UI_LEFT) == 1 && keys[0] == AK_TABLE);
+    CHECK(click_rect(&ntsc, &ntsc.seats_area, UI_LEFT) == 1 && keys[0] == AK_TABLE);
+    pr_kind = 'P';
+    CHECK(click_rect(&pal, a, UI_LEFT) == 1 && keys[0] == AK_TABLE);   /* my move, a gap in the seats */
+    CHECK(click_rect(&pal, a, UI_RIGHT) == 0);
+}
+static void test_seat_area_belongs_to_a_window_when_one_is_up(void)
+{
+    pr_kind = 'S';
+    CHECK(click_rect(&pal, &pal.seats_area, UI_LEFT) != 1 || keys[0] != AK_TABLE);
+    pr_kind = 'B';
+    CHECK(click_rect(&pal, &pal.seats_area, UI_LEFT) != 1 || keys[0] != AK_TABLE);
+    leaving = 1; pr_kind = 0;
+    CHECK(click_rect(&pal, &pal.seats_area, UI_LEFT) != 1 || keys[0] != AK_TABLE);
+    leaving = 0;
+}
 static void test_double_click_is_one_press(void)
 {
     CHECK(ui_press_ok(100, 0, 32) == 1);
@@ -307,7 +327,7 @@ int main(void)
     RUN(test_hivejack_right_cancels_count); RUN(test_seat_count_chips); RUN(test_title_buttons);
     RUN(test_yes_no_question); RUN(test_log_off_question_in_play); RUN(test_no_prompt_no_key);
     RUN(test_other_seats_turn_no_key); RUN(test_link_down_no_key); RUN(test_click_outside_everything);
-    RUN(test_same_answers_pal_and_ntsc); RUN(test_double_click_is_one_press);
+    RUN(test_same_answers_pal_and_ntsc); RUN(test_seat_area_click_flips_the_view); RUN(test_seat_area_belongs_to_a_window_when_one_is_up); RUN(test_double_click_is_one_press);
     RUN(test_press_gap_survives_the_tick_wrapping); RUN(test_press_gap_is_forgotten_when_the_tick_laps); RUN(test_ok_after_typing_sends_what_was_typed); RUN(test_hammering_is_dropped_when_the_ring_is_half_full);
     RUN(test_a_press_that_made_no_key_does_not_start_the_gap);
     printf("%d tests, %d failures\n", ran, failures);

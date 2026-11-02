@@ -14,6 +14,7 @@ unsigned char amiga_key_translate(unsigned short code, unsigned short qualifier,
     case 0x50: return K_HELP;           /* F1 */
     case 0x51: return K_OPTION;         /* F2 */
     case 0x52: return AK_SOUND;         /* F3 */
+    case 0x53: return AK_TABLE;         /* F4 */
     case 0x5F: return K_HELP;           /* Help */
     case 0x41: case 0x46: return K_DELETE;
     case 0x43: case 0x44: return K_RETURN;

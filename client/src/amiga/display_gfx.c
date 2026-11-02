@@ -386,6 +386,84 @@ static void card(const struct rect *r, unsigned char s)
     }
 }
 
+/* ---- the table view (F4, or a click on the seats): the other text clients' table, a row for each netrunner with
+ * its account and what it holds in each syndicate, the digits in the syndicates' colours. PAL has the room for a header
+ * and six rows; NTSC for three: me, the seat to move, and the others one at a time under the arrows. */
+
+#define TBL_CASH 136                    /* the account's right edge, from the table's left */
+#define TBL_COL 23                      /* a syndicate's column */
+
+#ifdef TABLEVIEW
+static unsigned char table_view = 1;       /* a test build starts in the table, to look at it on the rig */
+#else
+static unsigned char table_view;
+#endif
+
+static void table_row(short x, short y, unsigned char s, unsigned char w)
+{
+    unsigned char kind = seat_kind[s], j, n, l, bg = s == turn ? PEN_BG2 : PEN_BG1;
+    char b[10];
+    struct rect r;
+    rect_set(&r, x, y, w, 8);
+    gfx_rect(&r, bg);
+    b[0] = s == me ? '>' : ' ';
+    memcpy(b + 1, seat_name[s], 8);
+    b[9] = kind == SEAT_BOT ? '*' : kind == SEAT_AWAY ? '?' : ' ';
+    gfx_text(x + 2, y, b, 10, s == turn ? PEN_AMBER : PEN_TEXT, bg);
+    l = number(cash[s], 1);
+    gfx_text_right(x + TBL_CASH, y, numtxt, l, PEN_AMBER, bg);
+    for (j = 0; j < NSYN; ++j) {
+        n = coins[s][j];
+        if (n) {
+            l = number(n, 0);
+            gfx_text_right(x + TBL_CASH + j * TBL_COL + 20, y, numtxt, l, PEN_SYN + j, bg);
+        } else
+            gfx_text_right(x + TBL_CASH + j * TBL_COL + 20, y, ".", 1, PEN_DIM, bg);
+    }
+}
+
+static unsigned char table_rows;        /* the seats the PAL table last showed: the box is wiped only when they change */
+
+static void paint_table_pal(unsigned char full)
+{
+    unsigned char s, j, row = 0, n = 0;
+    short x = LY.seats_area.x + 4, y = LY.seats_area.y + 3;
+    struct rect r;
+    char ch;
+
+    for (s = 0; s < SEATS; ++s)
+        n += seat_kind[s] != SEAT_EMPTY;
+    if (full || n != table_rows) {
+        gfx_bevel(&LY.seats_area, PEN_BG1, PEN_EDGE, PEN_BG0);
+        table_rows = n;
+    }
+    gfx_text(x + 2, y, T_PLAYERTITLE_P, sizeof T_PLAYERTITLE_P - 1, PEN_CYAN, PEN_BG1);
+    gfx_text_right(x + TBL_CASH, y, T_ACCOUNT, sizeof T_ACCOUNT - 1, PEN_DIM, PEN_BG1);
+    for (j = 0; j < NSYN; ++j) {
+        rect_set(&r, x + TBL_CASH + 4 + j * TBL_COL, y, 16, 8);
+        gfx_rect(&r, PEN_SYN + j);
+        ch = syn_short[j][0];
+        gfx_text(r.x + 4, y, &ch, 1, PEN_BG0, PEN_SYN + j);
+    }
+    for (s = 0; s < SEATS; ++s)
+        if (seat_kind[s] != SEAT_EMPTY)
+            table_row(x, y + 8 + row++ * 8, s, LY.seats_area.w - 8);
+}
+
+static void paint_table_ntsc(void);
+static unsigned char others_count(void);
+
+/* the seats, whichever way they are shown (PAL: all of them; NTSC: the area) */
+static void paint_seats_pal(void)
+{
+    unsigned char i;
+    if (table_view)
+        paint_table_pal(1);
+    else
+        for (i = 0; i < SEATS; ++i)
+            card(&LY.seat[i], i);
+}
+
 /* NTSC has room for two cards: me, and the seat to move (or the next one, when it is me); the rest are a list. */
 static unsigned char second_seat(void)
 {
@@ -406,6 +484,10 @@ static void paint_seat_area_ntsc(void)
     char b[9];
     struct rect up = LY.scroll_up, down = LY.scroll_down;
 
+    if (table_view) {
+        paint_table_ntsc();
+        return;
+    }
     if (me < SEATS)
         card(&LY.seat[0], me);
     else
@@ -440,6 +522,59 @@ static void paint_seat_area_ntsc(void)
     }
 }
 
+static unsigned char others_count(void)
+{
+    unsigned char two = second_seat(), s, n = 0;
+    for (s = 0; s < SEATS; ++s)
+        if (s != me && s != two && seat_kind[s] != SEAT_EMPTY)
+            ++n;
+    return n;
+}
+
+static void paint_table_ntsc(void)
+{
+    unsigned char two = second_seat(), s, k, total = 0, row = 0;
+    short x = LY.seats_area.x + 4, y = LY.seats_area.y + 2;
+    struct rect up = LY.scroll_up, down = LY.scroll_down;
+
+    for (s = 0; s < SEATS; ++s)
+        if (s != me && s != two && seat_kind[s] != SEAT_EMPTY)
+            ++total;
+    if (others_top >= total)
+        others_top = total ? total - 1 : 0;
+    gfx_bevel(&LY.seats_area, PEN_BG1, PEN_EDGE, PEN_BG0);
+    if (me < SEATS)
+        table_row(x, y + row++ * 8, me, LY.seats_area.w - 24);
+    if (two < SEATS)
+        table_row(x, y + row++ * 8, two, LY.seats_area.w - 24);
+    for (s = 0, k = 0; s < SEATS; ++s) {
+        if (s == me || s == two || seat_kind[s] == SEAT_EMPTY)
+            continue;
+        if (k++ == others_top) {
+            table_row(x, y + row * 8, s, LY.seats_area.w - 24);
+            break;
+        }
+    }
+    if (total > 1) {
+        gfx_rect(&up, PEN_BG2);
+        gfx_text(up.x + 1, up.y + 2, "^", 1, others_top ? PEN_WHITE : PEN_DIM, PEN_BG2);
+        gfx_rect(&down, PEN_BG2);
+        gfx_text(down.x + 1, down.y + 2, "v", 1, others_top + 1 < total ? PEN_WHITE : PEN_DIM, PEN_BG2);
+    }
+}
+
+/* F4 or a click on the seats: cards or table. Not while a window or the help covers them (their saved picture would come back). */
+void amiga_toggle_table(void)
+{
+    if (!field || helping || dialog_up())
+        return;
+    table_view ^= 1;
+    if (LY.ntsc)
+        paint_seat_area_ntsc();
+    else
+        paint_seats_pal();
+}
+
 void display_kit_stale(void)
 {
     kit_valid = 0;
@@ -450,6 +585,8 @@ unsigned char amiga_scroll_others(signed char d)
     if (!LY.ntsc || !field || helping || dialog_up())
         return 0;                       /* not on screen: the click is the window's */
     if (d < 0 && !others_top)
+        return 1;
+    if (table_view && d > 0 && others_top + 1 >= others_count())
         return 1;
     others_top += d;
     paint_seat_area_ntsc();
@@ -468,6 +605,10 @@ static void seats_now(void)
     unsigned char i;
     if (LY.ntsc) {
         paint_seat_area_ntsc();
+        return;
+    }
+    if (table_view) {
+        paint_table_pal(0);
         return;
     }
     for (i = 0; i < SEATS; ++i)
@@ -655,8 +796,7 @@ static void paint_all(void)
     if (LY.ntsc)
         paint_seat_area_ntsc();
     else
-        for (i = 0; i < SEATS; ++i)
-            card(&LY.seat[i], i);
+        paint_seats_pal();
     paint_log();
     gfx_bevel(&LY.prompt, PEN_BG2, PEN_EDGE, PEN_BG0);
     for (i = 0; i < sizeof dirty_node; ++i)
@@ -791,7 +931,7 @@ void help_open(void)
     gfx_bevel(&r, PEN_BG1, PEN_EDGE, PEN_BG0);
     gfx_text(r.x + 8, r.y + 8, "INSTRUCTIONS", 12, PEN_CYAN, PEN_BG1);
     gfx_text(r.x + 8, r.y + 28, "THE PAGES ARE NOT IN THIS", 25, PEN_TEXT, PEN_BG1);
-    gfx_text(r.x + 8, r.y + 38, "BUILD YET.", 10, PEN_TEXT, PEN_BG1);
+    gfx_text(r.x + 8, r.y + 38, "BUILD YET. F4: SEATS AS TABLE", 29, PEN_TEXT, PEN_BG1);
     gfx_text(r.x + 8, r.y + 60, "ESC RETURNS TO THE GAME", 23, PEN_WHITE, PEN_BG1);
 }
 

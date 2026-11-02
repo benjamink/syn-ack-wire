@@ -9,6 +9,7 @@ void amiga_pointer_set(struct Window *w);    /* the game's arrow for this window
 void amiga_pointer_clear(struct Window *w);  /* the system's back, and the image freed */
 void dialog_sync(void);                 /* open, redraw, change or close the dialog the game state calls for */
 void dialog_quit_ask(unsigned char on); /* the title's quit question, over the dimmed title */
+void amiga_toggle_table(void);          /* F4 or a click on the seats: cards or table */
 void dialog_forget(void);               /* a full repaint is coming: drop what the window saved */
 void display_kit_stale(void);           /* the kit panel must be drawn again at the next prompt */
 unsigned char amiga_scroll_others(signed char d);   /* NTSC: the seat list up (-1) or down (1); 1 if it took the click */

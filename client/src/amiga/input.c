@@ -110,6 +110,8 @@ void amiga_click(unsigned char button, short x, short y)
     for (i = 0; i < n; ++i) {
         if (keys[i] == AK_SOUND)        /* the SOUND button: as F3, the game never sees it */
             snd_toggle();
+        else if (keys[i] == AK_TABLE)
+            amiga_toggle_table();
         else
             push(keys[i]);
     }
@@ -139,6 +141,8 @@ static void take_rawkey(UWORD code, UWORD qualifier, APTR address)
     k = amiga_key_translate(code, qualifier, n == 1 ? buf[0] : 0);
     if (k == AK_SOUND)
         snd_toggle();
+    else if (k == AK_TABLE)
+        amiga_toggle_table();
     else if (k)
         push(k);
 }

@@ -25,6 +25,7 @@ struct layout {
     unsigned char seat_cards;           /* PAL: one card for each seat. NTSC: 2 (me, the seat to move) and the list */
     struct rect seat[RULE_MAXPLAYERS];
     struct rect others, scroll_up, scroll_down;     /* NTSC only: the other seats' list and its arrows */
+    struct rect seats_area;             /* all of it: the cards or the table, and a click that flips between them */
     struct rect dlg, dlg_row[NSYN];     /* the buy window, and its syndicate rows */
     struct rect dlg_small, ask;         /* the hivejack and seat-count window (the buy window's top), and a Y/N question */
     struct rect btn[UI_BTN_MAX];        /* empty (w == 0) until the dialog or title that owns it fills it in */

@@ -114,6 +114,19 @@ static void test_syn_and_kit_hits_roundtrip(void)
         CHECK(layout_syn_at(&l, 0, 0) == -1 && layout_kit_at(&l, 0, 0) == -1);
     }
 }
+static void test_seats_area_holds_every_seat_widget(void)
+{
+    struct layout p, n;
+    int i;
+    layout_make(&p, 256);
+    layout_make(&n, 200);
+    for (i = 0; i < p.seat_cards; ++i)
+        CHECK(p.seat[i].x >= p.seats_area.x && p.seat[i].y >= p.seats_area.y &&
+              p.seat[i].x + p.seat[i].w <= p.seats_area.x + p.seats_area.w && p.seat[i].y + p.seat[i].h <= p.seats_area.y + p.seats_area.h);
+    CHECK(n.seats_area.y + n.seats_area.h <= n.log.y && p.seats_area.y + p.seats_area.h <= p.log.y);
+    CHECK(layout_inside(&n.seats_area, n.scroll_up.x, n.scroll_up.y) && layout_inside(&n.seats_area, n.scroll_down.x, n.scroll_down.y));
+    CHECK(p.seats_area.h >= 7 * 8 && n.seats_area.h >= 3 * 8);      /* the table's rows: a header and six, or three */
+}
 static void test_ntsc_shows_me_and_mover(void)
 {
     struct layout l, p;
@@ -227,7 +240,7 @@ int main(void)
 {
     RUN(test_every_rect_within_screen); RUN(test_no_overlap_between_panels); RUN(test_node_roundtrip);
     RUN(test_node_borders_half_open); RUN(test_gaps_are_not_nodes); RUN(test_syn_and_kit_hits_roundtrip);
-    RUN(test_ntsc_shows_me_and_mover); RUN(test_height_clamps); RUN(test_title_buttons_in_one_row_above_the_prompt);
+    RUN(test_seats_area_holds_every_seat_widget); RUN(test_ntsc_shows_me_and_mover); RUN(test_height_clamps); RUN(test_title_buttons_in_one_row_above_the_prompt);
     RUN(test_log_holds_three_lines_and_clears_the_rest); RUN(test_dialog_fits_above_prompt); RUN(test_buttons_inside_dialog_and_disjoint);
     printf("%d tests, %d failures\n", ran, failures);
     return failures != 0;

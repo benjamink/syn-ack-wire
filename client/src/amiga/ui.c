@@ -120,6 +120,8 @@ unsigned char ui_click(const struct layout *l, short x, short y, unsigned char b
         return one(keys, button == UI_LEFT && b == BTN_YES ? 'Y' : 'N');
     }
     if (title) return title_click(l, x, y, button, keys);
+    if (button == UI_LEFT && pr_kind != 'B' && pr_kind != 'D' && pr_kind != 'S' && layout_inside(&l->seats_area, x, y))
+        return one(keys, AK_TABLE);        /* the seats: cards or table; a window over them keeps its own clicks */
     if (!pr_kind || !link_up) return 0;
     switch (pr_kind) {
     case 'S':

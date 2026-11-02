@@ -30,6 +30,7 @@ static void test_function_keys(void)
     CHECK(amiga_key_translate(0x50, 0, 0) == K_HELP);      /* F1: the instructions */
     CHECK(amiga_key_translate(0x51, 0, 0) == K_OPTION);    /* F2: move hints */
     CHECK(amiga_key_translate(0x52, 0, 0) == AK_SOUND);    /* F3: sound, done by in_key */
+    CHECK(amiga_key_translate(0x53, 0, 0) == AK_TABLE);    /* F4: cards or table, done by in_key */
 }
 static void test_help_key(void)
 {
