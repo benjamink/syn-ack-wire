@@ -81,6 +81,11 @@ unsigned char net_appkey(unsigned char key)
 }
 
 /* Remember the handle just played under. Best effort: a locked or full disk loses nothing but the memory. */
+const char *amiga_server(void)
+{
+    return known_server;
+}
+
 /* The Region menu's pick: dialled next, and written with the handle at the next jack-in. */
 void amiga_set_server(const char *url)
 {

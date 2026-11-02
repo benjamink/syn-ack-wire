@@ -33,6 +33,19 @@ static void test_each_region_is_one_item_with_its_own_pick(void)
         CHECK(strcmp(menu_def(2)->items[n].label, regions[n].name) == 0);
     }
 }
+static void test_no_region_pick_is_a_game_key(void)
+{
+    int n, c;
+    for (n = 0; n < NREGIONS; ++n) {
+        unsigned char k = menu_item_key(2, n);
+        CHECK(ak_region(k) == n);       /* it is a Region pick ... */
+        CHECK(k != K_ESC && k != K_RETURN && k != K_DELETE && k != K_OPTION && k != K_HELP);
+        CHECK(!(k >= 0x20 && k <= 0x5F));
+    }
+    for (c = 0; c < 256; ++c)           /* ... and nothing else the game gets is */
+        if (c == K_ESC || c == K_RETURN || c == K_DELETE || c == K_OPTION || c == K_HELP || (c >= 0x20 && c <= 0x5F))
+            CHECK(ak_region((unsigned char)c) < 0);
+}
 static void test_nothing_past_the_ends(void)
 {
     CHECK(menu_item_key(0, 2) == 0 && menu_item_key(1, 3) == 0 && menu_item_key(2, NREGIONS) == 0);
@@ -66,7 +79,7 @@ static void test_command_keys_are_unique_letters(void)
 int main(void)
 {
     RUN(test_three_menus_in_order); RUN(test_project_and_game_picks_are_the_keys_they_stand_for);
-    RUN(test_each_region_is_one_item_with_its_own_pick); RUN(test_nothing_past_the_ends);
+    RUN(test_each_region_is_one_item_with_its_own_pick); RUN(test_no_region_pick_is_a_game_key); RUN(test_nothing_past_the_ends);
     RUN(test_keys_do_not_collide); RUN(test_command_keys_are_unique_letters);
     printf("%d tests, %d failures\n", ran, failures);
     return failures != 0;

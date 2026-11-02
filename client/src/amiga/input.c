@@ -100,10 +100,13 @@ static void act(unsigned char k)
         snd_toggle();
     else if (k == AK_TABLE)
         amiga_toggle_table();
-    else if (k >= AK_REGION && k < AK_REGION + 16)
-        menus_region(k - AK_REGION);
-    else
+    else if (ak_region(k) >= 0)
+        menus_region(ak_region(k));
+    else {
+        if (k == K_RETURN && amiga_title_up())
+            amiga_title_leave();        /* the join starts: the Region menu is off from here on */
         push(k);
+    }
 }
 
 /* A mouse press is the keys the keyboard would type for the widget under it (ui.c). One press is taken at a time: the

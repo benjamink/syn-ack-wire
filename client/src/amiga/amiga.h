@@ -12,7 +12,10 @@ void dialog_sync(void);                 /* open, redraw, change or close the dia
 void dialog_quit_ask(unsigned char on); /* the title's quit question, over the dimmed title */
 void amiga_snd_set(unsigned char on);   /* the kept sound switch, at the start */
 void amiga_table_set(unsigned char on); /* the kept view of the seats, at the start */
+const char *amiga_server(void);         /* the server address now kept (prefs_io.c) */
 void amiga_prefs_exit(void);            /* keep a changed setting (prefs_io.c) */
+unsigned char amiga_title_up(void);     /* the title's loop is running (the Region menu works) */
+void amiga_title_leave(void);           /* Return has left it */
 unsigned char amiga_snd_on(void);       /* the sound switch, for the menu's tick */
 unsigned char amiga_table_view(void);   /* the seats are shown as a table, for the menu's tick */
 void menus_update(void);                /* the menu strip follows the screen: off under a window, Region only on the title */

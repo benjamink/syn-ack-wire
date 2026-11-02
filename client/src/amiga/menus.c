@@ -71,7 +71,7 @@ static void build(void)
 /* what the strip shows: bit 0 hints, 1 sound, 2 table, 3 Region usable (the title is up), 4 the strip is on the window */
 static unsigned char state_now(unsigned char allowed)
 {
-    return (hints ? 1 : 0) | (amiga_snd_on() ? 2 : 0) | (amiga_table_view() ? 4 : 0) | (amiga_in_play() ? 0 : 8) | (allowed ? 16 : 0);
+    return (hints ? 1 : 0) | (amiga_snd_on() ? 2 : 0) | (amiga_table_view() ? 4 : 0) | (amiga_title_up() ? 8 : 0) | (allowed ? 16 : 0);
 }
 
 static void apply_flags(unsigned char st)
@@ -93,7 +93,9 @@ static void apply_flags(unsigned char st)
 
 static unsigned char allowed(void)
 {
-    return !dialog_up() && !amiga_helping() && !dialog_quit_open();
+    /* off, too, while the link is down and the title is not asking: a dial or a redial waits on the network, and a menu
+     * opened then would hold the whole machine's input until it ended */
+    return !dialog_up() && !amiga_helping() && !dialog_quit_open() && (link_up || amiga_title_up());
 }
 
 /* Bring the strip to the state of the game. The strip is changed only while off the window, and the window's RMBTRAP says
@@ -150,10 +152,11 @@ void menus_close(void)
 /* the title's Region menu: the next dial goes to that server, and the screen says so */
 void menus_region(unsigned char n)
 {
-    char url[SERVER_MAX + 1], t[6];
+    char url[SERVER_MAX + 1], was_url[SERVER_MAX + 1], t[6], url_n[SERVER_MAX + 3];
+    unsigned char was_region[12], was_len;
     unsigned char i, j = 5;
     unsigned short p;
-    if (n >= NREGIONS || amiga_in_play())
+    if (n >= NREGIONS || !amiga_title_up())
         return;
     p = regions[n].port;
     t[5] = 0;
@@ -164,6 +167,11 @@ void menus_region(unsigned char n)
     strcpy(url, "TCP://" REGION_HOST ":");
     strcat(url, t + j);
     strcat(url, "/");
+    strcpy(url_n, "N:");
+    strcat(url_n, url);
+    strcpy(was_url, amiga_server());
+    memcpy(was_region, region, sizeof region);
+    was_len = region_len;
     amiga_set_server(url);
     for (i = 0; regions[n].name[i] && i < sizeof region; ++i)
         region[i] = regions[n].name[i];
@@ -172,5 +180,14 @@ void menus_region(unsigned char n)
     if (link_up)
         net_close();
     link_up = 0;
+    if (net_open(url_n)) {              /* unreachable: keep the server that was, or Return would redial this one for ever */
+        amiga_set_server(was_url);
+        memcpy(region, was_region, sizeof region);
+        region_len = was_len;
+        status_code = NO_CARRIER;
+        status_len = 0;
+    } else {
+        net_close();                    /* it answers; the next Return dials it */
+    }
     display_title_update();
 }

@@ -24,6 +24,7 @@ static const char *const syn_short[NSYN] = SYN_SHORTS;
 static unsigned char field;             /* the playfield is up */
 static unsigned char ice_mask;          /* the syndicates drawn as Black ICE */
 static unsigned char helping;
+static unsigned char title_up;          /* the title's loop is running: set on each of its passes, cleared when Return leaves it */
 static char logl[3][WIDE_CH + 2];       /* the log's three lines: a move is a spike, a spread and up to three buys */
 static unsigned char logn[3];
 static unsigned char kit_shown[RULE_KITSIZE], kit_valid;
@@ -572,6 +573,17 @@ void amiga_table_set(unsigned char on)
 #endif
 }
 
+unsigned char amiga_title_up(void)
+{
+    return title_up && !field;
+}
+
+void amiga_title_leave(void)
+{
+    title_up = 0;
+    menus_update();
+}
+
 unsigned char amiga_in_play(void)
 {
     return field;
@@ -745,7 +757,7 @@ void display_clock(unsigned char secs)
 {
     unsigned char total = pr[0] ? pr[0] : 60, shown = secs ? secs - 1 : 0, l;
     struct rect bar, fill;
-    if (!pr_kind)
+    if (!pr_kind || helping)
         return;
     bar = LY.clock;
     gfx_rect(&bar, PEN_BG0);
@@ -757,6 +769,7 @@ void display_clock(unsigned char secs)
 
 void display_message(const char *s)
 {
+    menus_update();                     /* a dial or a redial turns the menus off, an answer back on */
     if (helping)                        /* the instructions cover the screen; closing them repaints it */
         return;
     gfx_bevel(&LY.prompt, PEN_BG2, PEN_EDGE, PEN_BG0);
@@ -771,6 +784,8 @@ void display_game_over(void)
 {
     unsigned char i, l;
     char nm[8];
+    if (helping)                        /* the prompt strip is under the page on NTSC */
+        return;
     sn = 0;
     if (winners & (winners - 1))        /* a tie: the names need the room */
         SLIT("TOP " T_PLAYER_P ":");
@@ -790,7 +805,8 @@ void display_link(void)
 {
     struct rect r;
     short x;
-    if (!field)                         /* still on the title screen */
+    menus_update();
+    if (!field || helping)              /* still on the title screen, or the page covers the header */
         return;
     rect_set(&r, 112, 0, 208, 10);
     gfx_rect(&r, PEN_BG2);
@@ -846,6 +862,8 @@ void display_playfield(void)
     }
     field = 1;
     gfx_cycle_end();                    /* the playfield's pens are the palette as loaded */
+    if (helping)                        /* the page is up: closing it paints the playfield */
+        return;
     ui_title_mode(0);
     menus_update();
     paint_all();
@@ -928,6 +946,7 @@ void display_title_idle(void)
     struct rect r;
     unsigned char now = ticks();
 
+    title_up = 1;
     if (helping || (unsigned char)(now - last) < NEON_EVERY)
         return;
     last = now;
@@ -1016,9 +1035,10 @@ unsigned char help_key(unsigned char k)
     helping = 0;
     menus_update();
     ui_help_mode(0);
-    if (field)
+    if (field) {
+        ui_title_mode(0);
         paint_all();
-    else
+    } else
         display_title_screen();
     return 0;
 }
