@@ -13,6 +13,9 @@ void dialog_quit_ask(unsigned char on); /* the title's quit question, over the d
 void amiga_snd_set(unsigned char on);   /* the kept sound switch, at the start */
 void amiga_table_set(unsigned char on); /* the kept view of the seats, at the start */
 const char *amiga_server(void);         /* the server address now kept (prefs_io.c) */
+unsigned char dialog_holding(void);     /* dialog.c: the next game's seat window waits for a key (the scores stay in view) */
+void dialog_hold(unsigned char on);
+void amiga_over_release(void);          /* display_gfx.c: a key or click ends the wait */
 void amiga_prefs_exit(void);            /* keep a changed setting (prefs_io.c) */
 unsigned char amiga_title_up(void);     /* the title's loop is running (the Region menu works) */
 void amiga_title_leave(void);           /* Return has left it */

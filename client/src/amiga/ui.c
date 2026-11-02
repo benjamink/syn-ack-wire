@@ -12,6 +12,12 @@ static unsigned char last_press, have_press;
 
 void ui_title_mode(unsigned char on) { title = on; }
 void ui_ask_yes_no(unsigned char on) { yesno = on; }
+unsigned char ui_key(unsigned char k)
+{
+    if (k == K_RETURN && !help && (leaving || (title && yesno) || (!title && pr_kind == 'B' && step)))
+        return 'Y';
+    return k;
+}
 void ui_help_mode(unsigned char on) { help = on; }
 void ui_reset(void) { count = 0; sold = 0; moved = 0; dirty = 1; }
 unsigned char ui_dirty(void) { unsigned char d = dirty; dirty = 0; return d; }

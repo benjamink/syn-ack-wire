@@ -96,6 +96,10 @@ static void push(unsigned char k)
  * here and never reach it; the rest are queued for it. */
 static void act(unsigned char k)
 {
+    if (dialog_holding() && k != AK_SOUND && k != AK_TABLE && ak_region(k) < 0) {
+        amiga_over_release();           /* the scores were looked at: this key only ends the wait */
+        return;
+    }
     if (k == AK_SOUND)                  /* F3, or the SOUND button, or its menu item */
         snd_toggle();
     else if (k == AK_TABLE)
@@ -103,6 +107,7 @@ static void act(unsigned char k)
     else if (ak_region(k) >= 0)
         menus_region(ak_region(k));
     else {
+        k = ui_key(k);
         if (k == K_RETURN && amiga_title_up())
             amiga_title_leave();        /* the join starts: the Region menu is off from here on */
         push(k);
@@ -118,6 +123,11 @@ void amiga_click(unsigned char button, short x, short y)
 
     if (!ui_press_ok(tick, (ring_head - ring_tail) & (RING - 1), RING))
         return;
+    if (dialog_holding()) {
+        amiga_over_release();
+        ui_press_taken(tick);
+        return;
+    }
     if (button == UI_LEFT && amiga_layout.ntsc) {       /* the seat list's arrows */
         if (layout_inside(&amiga_layout.scroll_up, x, y) && amiga_scroll_others(-1))
             return;

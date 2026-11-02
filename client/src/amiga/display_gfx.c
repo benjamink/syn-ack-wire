@@ -24,6 +24,7 @@ static const char *const syn_short[NSYN] = SYN_SHORTS;
 static unsigned char field;             /* the playfield is up */
 static unsigned char ice_mask;          /* the syndicates drawn as Black ICE */
 static unsigned char helping;
+static unsigned char over_t;            /* when the game ended, for a client that is not asked to start the next */
 static unsigned char title_up;          /* the title's loop is running: set on each of its passes, cleared when Return leaves it */
 static char logl[3][WIDE_CH + 2];       /* the log's three lines: a move is a spike, a spread and up to three buys */
 static unsigned char logn[3];
@@ -239,6 +240,8 @@ static void flush_timed(void)
 void display_idle(void)
 {
     unsigned char e, phase;
+    if (dialog_holding() && (pr_kind ? pr_kind != 'S' : (unsigned char)(ticks() - over_t) >= 2 * ticks_per_sec()))
+        dialog_hold(0);                 /* not the host (no seat prompt came), or play went on: nothing to wait for */
     if (!field || helping)
         return;
     flush();
@@ -445,7 +448,7 @@ static void paint_table_pal(unsigned char full)
     for (j = 0; j < NSYN; ++j) {
         rect_set(&r, x + TBL_CASH + 4 + j * TBL_COL, y, 16, 8);
         gfx_rect(&r, PEN_SYN + j);
-        ch = syn_short[j][0];
+        ch = syn_letter[j];             /* the letter the hive panel and the grid show */
         gfx_text(r.x + 4, y, &ch, 1, PEN_BG0, PEN_SYN + j);
     }
     for (s = 0; s < SEATS; ++s)
@@ -644,7 +647,7 @@ static void seats_now(void)
         return;
     }
     if (table_view) {
-        paint_table_pal(0);
+        paint_table_pal(1);             /* the whole box each time: a shorter amount must not leave the longer one's yen behind */
         return;
     }
     for (i = 0; i < SEATS; ++i)
@@ -727,7 +730,7 @@ static void prompt_now(void)
                 sput(nm, l);
             }
             break;
-        case 'S': ask = "START WITH HOW MANY SEATS? 2-6"; break;
+        case 'S': ask = dialog_holding() ? "GAME OVER. PRESS A KEY" : "START WITH HOW MANY SEATS? 2-6"; break;
         case 'P': ask = "RUN WHICH " T_EXPLOIT "? PRESS 1-6"; break;
         case 'F': ask = "PICK A LIT SYNDICATE"; break;
         case 'K': ask = pr[1] ? "TIE! ABSORB WHICH NEXT?" : "TIE! WHICH SURVIVES?"; break;
@@ -799,6 +802,15 @@ void display_game_over(void)
         }
     clear_clock();
     strip(sb, sn, WIDE_CH, PEN_WHITE);
+    if (pr_kind == 'S' || !pr_kind)
+        dialog_hold(1);                 /* the replay's seat window would cover the scores at once */
+    over_t = ticks();
+}
+
+void amiga_over_release(void)
+{
+    dialog_hold(0);
+    display_prompt();
 }
 
 void display_link(void)

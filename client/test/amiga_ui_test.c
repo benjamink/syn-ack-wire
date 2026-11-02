@@ -44,6 +44,21 @@ static void fixture(void)
     pr_kind = 0; step = 0; edit_len = 0; me = 2; turn = 2; link_up = 1; leaving = 0;
     ui_title_mode(0); ui_ask_yes_no(0); ui_reset(); ui_press_forget();
 }
+static void test_return_answers_yes_where_yes_is_lit(void)
+{
+    CHECK(ui_key(K_RETURN) == K_RETURN);                /* nothing asked: Return is Return */
+    pr_kind = 'B'; step = 1;                            /* the end-the-game question */
+    CHECK(ui_key(K_RETURN) == 'Y' && ui_key('N') == 'N' && ui_key(K_ESC) == K_ESC);
+    step = 0; leaving = 1;                              /* log off */
+    CHECK(ui_key(K_RETURN) == 'Y');
+    leaving = 0; ui_title_mode(1); ui_ask_yes_no(1);    /* the title's quit */
+    CHECK(ui_key(K_RETURN) == 'Y');
+    ui_ask_yes_no(0);
+    CHECK(ui_key(K_RETURN) == K_RETURN);                /* the title without a question: Return jacks in */
+    pr_kind = 'B'; step = 0;                            /* the buy window: Return buys */
+    ui_title_mode(0);
+    CHECK(ui_key(K_RETURN) == K_RETURN);
+}
 static void centre(const struct rect *r, short *x, short *y) { *x = r->x + r->w / 2; *y = r->y + r->h / 2; }
 static unsigned char click_rect(const struct layout *l, const struct rect *r, unsigned char button)
 {
@@ -340,7 +355,7 @@ int main(void)
     RUN(test_other_seats_turn_no_key); RUN(test_link_down_no_key); RUN(test_click_outside_everything);
     RUN(test_same_answers_pal_and_ntsc); RUN(test_seat_area_click_flips_the_view); RUN(test_seat_area_belongs_to_a_window_when_one_is_up); RUN(test_help_clicks_turn_pages_and_leave); RUN(test_double_click_is_one_press);
     RUN(test_press_gap_survives_the_tick_wrapping); RUN(test_press_gap_is_forgotten_when_the_tick_laps); RUN(test_ok_after_typing_sends_what_was_typed); RUN(test_hammering_is_dropped_when_the_ring_is_half_full);
-    RUN(test_a_press_that_made_no_key_does_not_start_the_gap);
+    RUN(test_a_press_that_made_no_key_does_not_start_the_gap); RUN(test_return_answers_yes_where_yes_is_lit);
     printf("%d tests, %d failures\n", ran, failures);
     return failures != 0;
 }

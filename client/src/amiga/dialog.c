@@ -15,11 +15,22 @@ static const char *const syn_short[NSYN] = SYN_SHORTS;
 static char shown;                      /* 'B', 'Q' (a question), 'D', 'S', or 0 */
 static unsigned char busy;
 static unsigned char saved;             /* the playfield under the window is kept aside, to put back */
+static unsigned char over_hold;         /* the game just ended: the seat-count window waits for a key, the scores stay in view */
 static unsigned char quit_q;            /* the title's "quit?" question is up */
 
 unsigned char dialog_quit_open(void)
 {
     return quit_q;
+}
+
+unsigned char dialog_holding(void)
+{
+    return over_hold;
+}
+
+void dialog_hold(unsigned char on)
+{
+    over_hold = on;
 }
 
 unsigned char dialog_up(void)
@@ -46,7 +57,7 @@ static char wanted(void)
     switch (pr_kind) {
     case 'B': return step ? 'Q' : 'B';
     case 'D': return 'D';
-    case 'S': return 'S';
+    case 'S': return over_hold ? 0 : 'S';
     }
     return 0;
 }
@@ -99,7 +110,7 @@ static void button(const struct rect *r, const char *label, unsigned char n, uns
 static void draw_buy(void)
 {
     const struct rect *w = &LY.dlg;
-    unsigned char i, k, n, l, off = LY.ntsc ? 1 : 2, coins[NSYN];
+    unsigned char i, k, n, l, off = LY.ntsc ? 1 : 2, bought[NSYN];
     unsigned total = 0, cash_here = pr[1] | (unsigned)pr[2] << 8;
     char line[24];
 
@@ -107,15 +118,16 @@ static void draw_buy(void)
     memcpy(line, "UP TO 3 A TURN: CLICK", 21);
     line[6] = '0' + RULE_MAXBUY;
     gfx_text(w->x + 8, w->y + (LY.ntsc ? 14 : 15), line, 21, PEN_TEXT, PEN_BG2);
-    gfx_text(w->x + 18, w->y + (LY.ntsc ? 24 : 26), "SYNDICATE", 9, PEN_DIM, PEN_BG2);
-    gfx_text(w->x + 100, w->y + (LY.ntsc ? 24 : 26), "PRICE", 5, PEN_DIM, PEN_BG2);
-    gfx_text(w->x + 148, w->y + (LY.ntsc ? 24 : 26), "LEFT", 4, PEN_DIM, PEN_BG2);
-    gfx_text(w->x + 186, w->y + (LY.ntsc ? 24 : 26), "BUY", 3, PEN_DIM, PEN_BG2);
-    memset(coins, 0, sizeof coins);
+    gfx_text(w->x + 18, w->y + (LY.ntsc ? 24 : 26), T_HIVE, sizeof T_HIVE - 1, PEN_DIM, PEN_BG2);
+    gfx_text(w->x + 70, w->y + (LY.ntsc ? 24 : 26), "HELD", 4, PEN_DIM, PEN_BG2);   /* what the netrunner already has: the choice needs it */
+    gfx_text(w->x + 108, w->y + (LY.ntsc ? 24 : 26), "PRICE", 5, PEN_DIM, PEN_BG2);
+    gfx_text(w->x + 152, w->y + (LY.ntsc ? 24 : 26), "LEFT", 4, PEN_DIM, PEN_BG2);
+    gfx_text(w->x + 192, w->y + (LY.ntsc ? 24 : 26), "BUY", 3, PEN_DIM, PEN_BG2);
+    memset(bought, 0, sizeof bought);
     for (i = 0; i < edit_len; ++i)
         for (k = 0; k < NSYN; ++k)
             if (edit[i] == syn_letter[k]) {
-                ++coins[k];
+                ++bought[k];
                 total += pr[4 + k];
             }
     for (i = 0; i < NSYN; ++i) {
@@ -126,15 +138,21 @@ static void draw_buy(void)
         gfx_rect(&sw, on ? PEN_SYN + i : PEN_SYN_DIM + i);
         gfx_text(sw.x, y, &syn_letter[i], 1, PEN_BG0, on ? PEN_SYN + i : PEN_SYN_DIM + i);   /* the key that buys it */
         gfx_text(w->x + 20, y, syn_short[i], strlen(syn_short[i]), on ? PEN_WHITE : PEN_DIM, bg);
+        if (me < SEATS && coins[me][i]) {
+            l = number(coins[me][i], 0);
+            num_at(w->x + 86, y, l, 2, PEN_SYN + i, bg);
+        } else {
+            gfx_text(w->x + 102, y, ".", 1, PEN_DIM, bg);
+        }
         if (on) {
             l = number(pr[4 + i], 1);
-            num_at(w->x + 100, y, l, 5, PEN_AMBER, bg);
+            num_at(w->x + 108, y, l, 5, PEN_AMBER, bg);
             l = number(pr[11 + i], 0);
-            num_at(w->x + 148, y, l, 2, PEN_TEXT, bg);
+            num_at(w->x + 152, y, l, 2, PEN_TEXT, bg);
         } else {
-            gfx_text(w->x + 100, y, "  ---", 5, PEN_DIM, bg);
+            gfx_text(w->x + 108, y, "  ---", 5, PEN_DIM, bg);
         }
-        for (n = 0; n < coins[i]; ++n) {
+        for (n = 0; n < bought[i]; ++n) {
             struct rect chip = { w->x + 176 + n * 14, row->y, 12, row->h - 1 };
             char c = syn_letter[i];
             gfx_bevel(&chip, PEN_SYN + i, PEN_WHITE, PEN_BG0);
