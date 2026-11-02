@@ -21,6 +21,8 @@ void gfx_hatch(const struct rect *r, unsigned char pen_a, unsigned char pen_b); 
 unsigned char gfx_save(const struct rect *r);   /* copy that part of the screen aside (chip RAM); 0 if there is no memory for it */
 void gfx_discard(void);                 /* free the saved part without putting it back (the screen was repainted meanwhile) */
 void gfx_restore(void);                 /* put the saved part back and free it */
+void gfx_cycle(unsigned char first, unsigned char n, unsigned char step);   /* rotate n palette entries from first (the title's neon) */
+void gfx_cycle_end(void);               /* the palette as it was loaded */
 void gfx_dim(const struct rect *r, unsigned char pen);                   /* a checkerboard of pen over what is there */
 
 #endif

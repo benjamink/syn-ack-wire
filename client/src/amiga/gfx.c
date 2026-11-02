@@ -10,6 +10,7 @@
 #include <proto/intuition.h>
 #include "amiga.h"
 #include "gfx.h"
+#include "palcycle.h"
 
 #ifndef GFX_DEPTH
 #define GFX_DEPTH 5                      /* 32 colours */
@@ -90,6 +91,31 @@ unsigned char gfx_open(unsigned short *width, unsigned short *height)
     *width = 320;
     *height = h;
     return 1;
+}
+
+static UWORD live[32];                  /* the palette as the screen has it, while a run of entries turns */
+static unsigned char cycling;
+
+void gfx_cycle(unsigned char first, unsigned char n, unsigned char step)
+{
+    unsigned char i;
+
+    if (!scr)
+        return;
+    if (!cycling) {
+        for (i = 0; i < 32; ++i)
+            live[i] = amiga_palette[i];
+        cycling = 1;
+    }
+    palcycle(live + first, n, step);
+    LoadRGB4(&scr->ViewPort, live, 32);
+}
+
+void gfx_cycle_end(void)
+{
+    if (cycling && scr)
+        LoadRGB4(&scr->ViewPort, (UWORD *)amiga_palette, 32);
+    cycling = 0;
 }
 
 void gfx_close(void)

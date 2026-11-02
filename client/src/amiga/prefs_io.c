@@ -27,6 +27,13 @@ static APTR quiet_dos(void)
     return was;
 }
 
+static void current(struct prefs_set *now)
+{
+    now->view = amiga_table_view();
+    now->hints = hints;
+    now->sound = amiga_snd_on();
+}
+
 /* The lobby's AppKey 0 (the player's name) is here the saved handle, from rx_ring[2]; the lobby's own key (LOBBY_KEY, the
  * server it picked) is here the SERVER= address, which main.c dials after "N:"; any other key is none. */
 unsigned char net_appkey(unsigned char key)
@@ -57,6 +64,7 @@ unsigned char net_appkey(unsigned char key)
     prefs_server(file, (unsigned char)got, known_server);
     strcpy(saved_server, known_server);
     if (key == 0) {                     /* the first look, at the start: the kept settings take effect */
+        current(&saved_set);            /* a setting the file lacks stays as the build has it */
         prefs_settings(file, (unsigned char)got, &saved_set);
         hints = saved_set.hints;
         amiga_snd_set(saved_set.sound);
@@ -79,13 +87,6 @@ void amiga_set_server(const char *url)
     strncpy(picked, url, SERVER_MAX);
     picked[SERVER_MAX] = 0;
     strcpy(known_server, picked);
-}
-
-static void current(struct prefs_set *now)
-{
-    now->view = amiga_table_view();
-    now->hints = hints;
-    now->sound = amiga_snd_on();
 }
 
 static unsigned char same_set(const struct prefs_set *a, const struct prefs_set *b)

@@ -845,6 +845,7 @@ void display_playfield(void)
         blink = done = NONE;
     }
     field = 1;
+    gfx_cycle_end();                    /* the playfield's pens are the palette as loaded */
     ui_title_mode(0);
     menus_update();
     paint_all();
@@ -900,13 +901,54 @@ void display_title_update(void)
     title_buttons();
 }
 
+static void title_logo(void)
+{
+    static const unsigned char ramp[12] = { PEN_CYAN, PEN_SYN, PEN_SYN + 2, PEN_MAG, PEN_SYN + 4, PEN_AMBER,
+                                            PEN_SYN + 6, PEN_SYN + 3, PEN_SYN + 5, PEN_GREEN, PEN_CYAN, PEN_SYN };
+    struct rect r;
+    unsigned char i, n = sizeof TH_TITLE - 1;
+    short x = (320 - n * 24) / 2;
+
+    rect_set(&r, 0, 36, 320, 28);       /* clear the band: a burst of static leaves lines in it */
+    gfx_rect(&r, PEN_BG0);
+    for (i = 0; i < n; ++i) {
+        gfx_glyph(x + i * 24 + 2, 40, TH_TITLE[i], 3, PEN_BG2);         /* a shadow, then the letter */
+        gfx_glyph(x + i * 24, 38, TH_TITLE[i], 3, ramp[i % 12]);
+    }
+}
+
+#define NEON_PENS 7                     /* PEN_SYN .. PEN_SYN + 6, the logo's own colours: turned on the title, never in play */
+#define NEON_EVERY 3                    /* ticks between turns */
+#define STATIC_EVERY 100                /* turns between bursts of static, about six seconds */
+
+/* The title's life: the logo's colours turn one place at a time, and now and then a burst of lines crosses it. */
+void display_title_idle(void)
+{
+    static unsigned char last, turns, burst;
+    struct rect r;
+    unsigned char now = ticks();
+
+    if (helping || (unsigned char)(now - last) < NEON_EVERY)
+        return;
+    last = now;
+    gfx_cycle(PEN_SYN, NEON_PENS, 1);
+    if (burst) {
+        burst = 0;
+        title_logo();                   /* the logo as it was */
+    } else if (++turns >= STATIC_EVERY) {
+        turns = 0;
+        burst = 1;
+        rect_set(&r, 20, 40 + (now & 15), 280, 1);
+        gfx_rect(&r, PEN_DIM);
+        rect_set(&r, 40, 48 + (now & 7), 240, 1);
+        gfx_rect(&r, PEN_STEEL);
+    }
+}
+
 void display_title_screen(void)
 {
     struct rect r, p;
     unsigned char i, n = sizeof TH_TITLE - 1;
-    static const unsigned char ramp[12] = { PEN_CYAN, PEN_SYN, PEN_SYN + 2, PEN_MAG, PEN_SYN + 4, PEN_AMBER,
-                                            PEN_SYN + 6, PEN_SYN + 3, PEN_SYN + 5, PEN_GREEN, PEN_CYAN, PEN_SYN };
-    short x;
 
     field = 0;
     ui_title_mode(1);
@@ -924,11 +966,7 @@ void display_title_screen(void)
     rect_set(&r, 0, 10, 320, 1);
     gfx_rect(&r, PEN_EDGE);
     gfx_text(6, 1, TH_TITLE, n, PEN_WHITE, PEN_BG2);
-    x = (320 - n * 24) / 2;
-    for (i = 0; i < n; ++i) {
-        gfx_glyph(x + i * 24 + 2, 40, TH_TITLE[i], 3, PEN_BG2);         /* a shadow, then the letter */
-        gfx_glyph(x + i * 24, 38, TH_TITLE[i], 3, ramp[i % 12]);
-    }
+    title_logo();
     rect_set(&r, 40, 84, 240, 1);
     gfx_rect(&r, PEN_EDGE);
     rect_set(&p, PANEL_X, 94, 272, 36);
@@ -957,6 +995,7 @@ static unsigned char help_pg;
 void help_open(void)
 {
     helping = 1;
+    gfx_cycle_end();
     menus_update();
     help_pg = 1;
     ui_help_mode(1);
