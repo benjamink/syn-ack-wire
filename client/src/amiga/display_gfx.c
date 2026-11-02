@@ -926,6 +926,8 @@ void display_title_update(void)
         say(VAL_X, 111, "", 0, 25, PEN_GREEN, PEN_BG1);
     for (i = 0; i < 8; ++i)
         b[i] = i < edit_len ? edit[i] : ' ';
+    rect_set(&cur, VAL_X + 3, 141, 74, 10);     /* inside the frame: the cursor block is taller than the text */
+    gfx_rect(&cur, PEN_BG0);
     gfx_text(VAL_X + 6, 142, b, 8, PEN_WHITE, PEN_BG0);
     rect_set(&cur, VAL_X + 6 + (edit_len < 8 ? edit_len : 7) * 8, 141, 6, 10);
     if (edit_len < 8)
