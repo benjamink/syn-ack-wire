@@ -7,11 +7,12 @@ static unsigned char count;             /* the hivejack stepper */
 static unsigned char sold;              /* what the first step settled on */
 static unsigned char dirty;
 static unsigned char moved;             /* the stepper was used since the window opened */
-static unsigned char title, yesno;
+static unsigned char title, yesno, help;
 static unsigned char last_press, have_press;
 
 void ui_title_mode(unsigned char on) { title = on; }
 void ui_ask_yes_no(unsigned char on) { yesno = on; }
+void ui_help_mode(unsigned char on) { help = on; }
 void ui_reset(void) { count = 0; sold = 0; moved = 0; dirty = 1; }
 unsigned char ui_dirty(void) { unsigned char d = dirty; dirty = 0; return d; }
 unsigned char ui_count(void) { return count; }
@@ -115,6 +116,12 @@ unsigned char ui_click(const struct layout *l, short x, short y, unsigned char b
     signed char b;
     short n;
     if (button != UI_LEFT && button != UI_RIGHT) return 0;
+    if (help) {                                 /* the instructions cover everything: turn the page, or leave */
+        if (button == UI_RIGHT || layout_inside(&l->help_exit, x, y)) return one(keys, K_ESC);
+        if (layout_inside(&l->help_next, x, y)) return one(keys, '>');
+        if (layout_inside(&l->help_prev, x, y)) return one(keys, '<');
+        return 0;
+    }
     if (leaving || (title && yesno)) {          /* a Y/N question: only a yes is a yes */
         b = layout_btn_at(l, x, y);
         return one(keys, button == UI_LEFT && b == BTN_YES ? 'Y' : 'N');

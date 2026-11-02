@@ -277,6 +277,17 @@ static void test_seat_area_belongs_to_a_window_when_one_is_up(void)
     CHECK(click_rect(&pal, &pal.seats_area, UI_LEFT) != 1 || keys[0] != AK_TABLE);
     leaving = 0;
 }
+static void test_help_clicks_turn_pages_and_leave(void)
+{
+    ui_help_mode(1);
+    CHECK(click_rect(&pal, &pal.help_next, UI_LEFT) == 1 && keys[0] == '>');
+    CHECK(click_rect(&pal, &pal.help_prev, UI_LEFT) == 1 && keys[0] == '<');
+    CHECK(click_rect(&ntsc, &ntsc.help_exit, UI_LEFT) == 1 && keys[0] == K_ESC);
+    CHECK(click_rect(&pal, &pal.help_page, UI_RIGHT) == 1 && keys[0] == K_ESC);
+    CHECK(click_node(&pal, 40) == 0);                          /* the playfield under it is not clickable */
+    ui_help_mode(0);
+    CHECK(click_rect(&pal, &pal.help_next, UI_LEFT) == 0 || (keys[0] != '>' && keys[0] != K_ESC));
+}
 static void test_double_click_is_one_press(void)
 {
     CHECK(ui_press_ok(100, 0, 32) == 1);
@@ -327,7 +338,7 @@ int main(void)
     RUN(test_hivejack_right_cancels_count); RUN(test_seat_count_chips); RUN(test_title_buttons);
     RUN(test_yes_no_question); RUN(test_log_off_question_in_play); RUN(test_no_prompt_no_key);
     RUN(test_other_seats_turn_no_key); RUN(test_link_down_no_key); RUN(test_click_outside_everything);
-    RUN(test_same_answers_pal_and_ntsc); RUN(test_seat_area_click_flips_the_view); RUN(test_seat_area_belongs_to_a_window_when_one_is_up); RUN(test_double_click_is_one_press);
+    RUN(test_same_answers_pal_and_ntsc); RUN(test_seat_area_click_flips_the_view); RUN(test_seat_area_belongs_to_a_window_when_one_is_up); RUN(test_help_clicks_turn_pages_and_leave); RUN(test_double_click_is_one_press);
     RUN(test_press_gap_survives_the_tick_wrapping); RUN(test_press_gap_is_forgotten_when_the_tick_laps); RUN(test_ok_after_typing_sends_what_was_typed); RUN(test_hammering_is_dropped_when_the_ring_is_half_full);
     RUN(test_a_press_that_made_no_key_does_not_start_the_gap);
     printf("%d tests, %d failures\n", ran, failures);

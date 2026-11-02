@@ -84,6 +84,10 @@ void layout_make(struct layout *l, unsigned short height)
             set(&l->seat[i], 4 + (i % 3) * 105, 161 + (i / 3) * 31, 102, 29);
         set(&l->seats_area, 0, 160, 320, 62);
     }
+    set(&l->help_page, 0, (l->height - 192) / 2, 320, 192);          /* 24 rows of 8, the page text's own size */
+    set(&l->help_prev, 0, l->help_page.y + 176, 104, 16);            /* the footer row and the one above it */
+    set(&l->help_exit, 104, l->help_page.y + 176, 112, 16);
+    set(&l->help_next, 216, l->help_page.y + 176, 104, 16);
     dialogs(l, ntsc);
     title_buttons(l);
     for (i = 0; i < NSYN; ++i)

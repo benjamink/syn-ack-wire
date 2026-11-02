@@ -114,6 +114,24 @@ static void test_syn_and_kit_hits_roundtrip(void)
         CHECK(layout_syn_at(&l, 0, 0) == -1 && layout_kit_at(&l, 0, 0) == -1);
     }
 }
+static void test_help_page_and_its_footer_zones_fit(void)
+{
+    struct layout p, n;
+    const struct layout *l[2] = { &p, &n };
+    int i;
+    layout_make(&p, 256);
+    layout_make(&n, 200);
+    for (i = 0; i < 2; ++i) {
+        const struct rect *pg = &l[i]->help_page, *z[3] = { &l[i]->help_prev, &l[i]->help_exit, &l[i]->help_next };
+        int k;
+        CHECK(pg->w == 320 && pg->h == 192 && pg->y >= 0 && pg->y + pg->h <= l[i]->height);
+        for (k = 0; k < 3; ++k) {
+            CHECK(z[k]->w > 0 && z[k]->x >= pg->x && z[k]->x + z[k]->w <= pg->x + pg->w);
+            CHECK(z[k]->y + z[k]->h == pg->y + pg->h);                  /* they end with the page's footer row */
+        }
+        CHECK(z[0]->x + z[0]->w <= z[1]->x && z[1]->x + z[1]->w <= z[2]->x);   /* disjoint, left to right */
+    }
+}
 static void test_question_buttons_sit_below_its_text(void)
 {
     struct layout p, n;
@@ -253,7 +271,7 @@ int main(void)
 {
     RUN(test_every_rect_within_screen); RUN(test_no_overlap_between_panels); RUN(test_node_roundtrip);
     RUN(test_node_borders_half_open); RUN(test_gaps_are_not_nodes); RUN(test_syn_and_kit_hits_roundtrip);
-    RUN(test_question_buttons_sit_below_its_text); RUN(test_seats_area_holds_every_seat_widget); RUN(test_ntsc_shows_me_and_mover); RUN(test_height_clamps); RUN(test_title_buttons_in_one_row_above_the_prompt);
+    RUN(test_help_page_and_its_footer_zones_fit); RUN(test_question_buttons_sit_below_its_text); RUN(test_seats_area_holds_every_seat_widget); RUN(test_ntsc_shows_me_and_mover); RUN(test_height_clamps); RUN(test_title_buttons_in_one_row_above_the_prompt);
     RUN(test_log_holds_three_lines_and_clears_the_rest); RUN(test_dialog_fits_above_prompt); RUN(test_buttons_inside_dialog_and_disjoint);
     printf("%d tests, %d failures\n", ran, failures);
     return failures != 0;

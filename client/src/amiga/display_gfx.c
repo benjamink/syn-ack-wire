@@ -12,6 +12,7 @@
 #include "amiga.h"
 #include "gfx.h"
 #include "ui.h"
+#include "help.h"
 
 #define LY      amiga_layout
 #define YEN     0xA5                    /* Topaz is ISO Latin-1: the server's "\" is a yen here */
@@ -734,6 +735,8 @@ void display_clock(unsigned char secs)
 
 void display_message(const char *s)
 {
+    if (helping)                        /* the instructions cover the screen; closing them repaints it */
+        return;
     gfx_bevel(&LY.prompt, PEN_BG2, PEN_EDGE, PEN_BG0);
     strip(s, strlen(s), WIDE_CH, PEN_AMBER);
 #ifdef QUIT_ASK
@@ -855,6 +858,8 @@ void display_title_update(void)
     unsigned char i, n = 0;
     struct rect cur;
 
+    if (helping)
+        return;
     say(VAL_X, 99, (const char *)region, region_len, 12, PEN_WHITE, PEN_BG1);
     if (status_len) {
         n = status_len - 1;
@@ -922,25 +927,31 @@ void display_title_screen(void)
     display_title_update();
 }
 
-/* ---------------------------------------------------------------- the instructions (pages come in step 3) */
+/* ---------------------------------------------------------------- the instructions */
+
+static unsigned char help_pg;
 
 void help_open(void)
 {
-    struct rect r;
     helping = 1;
-    rect_set(&r, 24, (LY.height - 80) / 2, 272, 80);
-    gfx_bevel(&r, PEN_BG1, PEN_EDGE, PEN_BG0);
-    gfx_text(r.x + 8, r.y + 8, "INSTRUCTIONS", 12, PEN_CYAN, PEN_BG1);
-    gfx_text(r.x + 8, r.y + 28, "THE PAGES ARE NOT IN THIS", 25, PEN_TEXT, PEN_BG1);
-    gfx_text(r.x + 8, r.y + 38, "BUILD YET. F4: SEATS AS TABLE", 29, PEN_TEXT, PEN_BG1);
-    gfx_text(r.x + 8, r.y + 60, "ESC RETURNS TO THE GAME", 23, PEN_WHITE, PEN_BG1);
+    help_pg = 1;
+    ui_help_mode(1);
+    help_draw(help_pg);
 }
 
 unsigned char help_key(unsigned char k)
 {
+    if (k == '>' || k == '<') {
+        if (k == '>' && help_pg < help_pages())
+            help_draw(++help_pg);
+        else if (k == '<' && help_pg > 1)
+            help_draw(--help_pg);
+        return 1;
+    }
     if (k != K_ESC && k != K_RETURN && k != K_HELP)
         return 1;
     helping = 0;
+    ui_help_mode(0);
     if (field)
         paint_all();
     else
