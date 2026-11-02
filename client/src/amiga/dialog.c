@@ -104,6 +104,14 @@ static void button(const struct rect *r, const char *label, unsigned char n, uns
     gfx_text(r->x + (r->w - n * 8) / 2, r->y + 4, label, n, pen, fill);
 }
 
+/* a line under the first letter of a button's label: the key that presses it */
+static void underline(const struct rect *r, unsigned char n, unsigned char pen)
+{
+    struct rect u;
+    u.x = r->x + (r->w - n * 8) / 2; u.y = r->y + 12; u.w = 8; u.h = 1;
+    gfx_rect(&u, pen);
+}
+
 #define LABEL(r, s, fill, hi, pen) button(r, s, sizeof s - 1, fill, hi, pen)
 #define TITLE(r, s) window(r, s, sizeof s - 1)
 
@@ -194,6 +202,8 @@ static void draw_question(void)
     }
     LABEL(&LY.btn[BTN_YES], "YES", PEN_GREEN, PEN_WHITE, PEN_BG0);
     LABEL(&LY.btn[BTN_NO], "NO", PEN_BG2, PEN_EDGEHI, PEN_WHITE);
+    underline(&LY.btn[BTN_YES], 3, PEN_BG0);        /* the key that answers: Y or N */
+    underline(&LY.btn[BTN_NO], 2, PEN_WHITE);
 }
 
 static void draw_hivejack(void)
