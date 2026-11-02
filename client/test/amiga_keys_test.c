@@ -25,6 +25,11 @@ static void test_shifted_digit_passes(void)
     CHECK(amiga_key_translate(0x01, SHIFT, '!') == '!');
     CHECK(amiga_key_translate(0x01, 0, '1') == '1');
 }
+static void test_y_and_n_in_either_case(void)
+{
+    CHECK(amiga_key_translate(0x15, 0, 'y') == 'Y' && amiga_key_translate(0x15, SHIFT, 'Y') == 'Y');   /* the Y/N questions */
+    CHECK(amiga_key_translate(0x36, 0, 'n') == 'N' && amiga_key_translate(0x36, SHIFT, 'N') == 'N');
+}
 static void test_function_keys(void)
 {
     CHECK(amiga_key_translate(0x50, 0, 0) == K_HELP);      /* F1: the instructions */
@@ -79,7 +84,7 @@ static void test_repeat_passes(void)
 int main(void)
 {
     RUN(test_letters_upper); RUN(test_shifted_digit_passes); RUN(test_function_keys); RUN(test_help_key);
-    RUN(test_backspace_and_del); RUN(test_return_and_esc); RUN(test_arrows); RUN(test_key_up_ignored);
+    RUN(test_backspace_and_del); RUN(test_return_and_esc); RUN(test_y_and_n_in_either_case); RUN(test_arrows); RUN(test_key_up_ignored);
     RUN(test_non_ascii_dropped); RUN(test_chords_dropped); RUN(test_repeat_passes);
     printf("%d tests, %d failures\n", ran, failures);
     return failures != 0;
