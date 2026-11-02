@@ -899,8 +899,8 @@ void display_playfield(void)
 
 /* mockup 1: the name in Topaz glyphs three times the size, a colour each (palette cycling comes in step 3), over circuit
  * traces; the region and status panel; the handle in a string gadget; a row of buttons. */
-#define PANEL_X 24
-#define VAL_X   88                      /* the panel's and the handle's values */
+#define PANEL_X 12
+#define VAL_X   76                      /* the panel's and the handle's values */
 
 static void title_button(unsigned char btn, const char *label, unsigned char n, unsigned char fill, unsigned char hi, unsigned char pen)
 {
@@ -931,11 +931,11 @@ void display_title_update(void)
     say(VAL_X, 99, (const char *)region, region_len, 12, PEN_WHITE, PEN_BG1);
     if (status_len) {
         n = status_len - 1;
-        say(VAL_X, 111, (const char *)status_text, n, 25, PEN_GREEN, PEN_BG1);
+        say(VAL_X, 111, (const char *)status_text, n, 28, PEN_GREEN, PEN_BG1);
     } else if (status_code == NO_CARRIER)
-        say(VAL_X, 111, "NO CARRIER", 10, 25, PEN_RED, PEN_BG1);
+        say(VAL_X, 111, "NO CARRIER", 10, 28, PEN_RED, PEN_BG1);
     else
-        say(VAL_X, 111, "", 0, 25, PEN_GREEN, PEN_BG1);
+        say(VAL_X, 111, "", 0, 28, PEN_GREEN, PEN_BG1);
     for (i = 0; i < 8; ++i)
         b[i] = i < edit_len ? edit[i] : ' ';
     rect_set(&cur, VAL_X + 3, 141, 74, 10);     /* inside the frame: the cursor block is taller than the text */
@@ -971,7 +971,7 @@ void display_title_screen(void)
     ui_title_mode(1);
     dialog_quit_ask(0);
     gfx_art(title_art, title_art_len, title_art_palette);      /* the picture: logo, skyline, floor; the rest goes on top */
-    rect_set(&p, PANEL_X, 94, 272, 36);
+    rect_set(&p, PANEL_X, 94, 296, 36);
     gfx_bevel(&p, PEN_BG1, PEN_EDGE, PEN_BG0);
     gfx_text(PANEL_X + 8, 99, "REGION", 6, PEN_DIM, PEN_BG1);
     gfx_text(PANEL_X + 8, 111, "STATUS", 6, PEN_DIM, PEN_BG1);

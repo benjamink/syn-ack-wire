@@ -422,7 +422,7 @@ ProDOS games boot. (Through cc65's `loader.system` it hung on a real //c booting
   can't run, a syndicate letter) shows normal. A refusal at the foot of the title screen is inverse. There is
   no yen glyph: money shows as `Y3200`. Only the 40 bytes of each row are ever written, never the screen holes
   (the peripheral cards' scratch memory, the FujiNet's included).
-- **Menus:** hold the right mouse button: PROJECT (Instructions, Quit), GAME (Move hints, Sound, Seats as table, each ticked when on) and REGION (the four servers, generated from `server/servers.fly.toml` by `tools/gen_regions.py` into `src/amiga/regions_tab.h`; usable on the title only, the next dial goes to the one chosen and `SERVER=` in the prefs file keeps it). Every item has an Amiga-key letter (I, Q, M, S, T and 1-4). While one of the game's own windows or the instructions is up the strip is off and the right button cancels, as it did.
+- **Menus:** hold the right mouse button: PROJECT (Instructions, Workbench, Quit), GAME (Move hints, Sound, Seats as table, each ticked when on) and REGION (the four servers, generated from `server/servers.fly.toml` by `tools/gen_regions.py` into `src/amiga/regions_tab.h`; usable on the title only, the next dial goes to the one chosen and `SERVER=` in the prefs file keeps it). Workbench sends the game's screen behind Workbench and the other screens (`ScreenToBack`), so the machine can be used meanwhile with the game running on; Amiga-M or the depth gadget of the screen in front brings it back. Every item has an Amiga-key letter (I, W, Q, M, S, T and 1-4). While one of the game's own windows or the instructions is up the strip is off and the right button cancels, as it did.
 - **Keys:** as the Atari's, except **Open-Apple** (alone) for move hints and **Closed-Apple** for sound, where
   the Atari has OPTION and SELECT. Those two aren't latched like the other keys: they count only while held when
   the loop looks, once a pass, so a press counts on the first look that sees it (a 64-pass settle time, then a
@@ -1011,7 +1011,7 @@ from TNFS, as M.U.L.E.'s Intellivision client is booted); `synack.bin` and `syna
 | fujinet-lib 5.0.0 | 1712 | open/status/read_nb/write/close plus the cc65 runtime and memcpy/memmove it pulls in; the test and the library have since been removed from the repo |
 | `wiremon.xex` | 2982 | whole file, including cc65's Atari startup code |
 | **amiga** (2026-11-01, m68k gcc 15, `-Os`, nix13) | | |
-| `syn-ack-wire-amiga` | 95140 | whole file; the title picture is 24,098 B of it (step 3: menus, help pages, settings, title picture with colour cycling; 55432 in step 2, graphics and mouse; 37032 in step 1 with the text display); about 280 KB of chip RAM stay free with the screen open |
+| `syn-ack-wire-amiga` | 95228 | whole file; the title picture is 24,098 B of it (step 3: menus, help pages, settings, title picture with colour cycling; 55432 in step 2, graphics and mouse; 37032 in step 1 with the text display); about 280 KB of chip RAM stay free with the screen open |
 | the screen | 20480 | chip RAM: 320×256, two bitplanes (PAL; 16000 on NTSC's 200 lines), opened by `start.c` |
 
 ## Tested (atari800 7.2.1 + FujiNet-PC 1.6 + server, NetSIO)
