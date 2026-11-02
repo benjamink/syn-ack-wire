@@ -321,13 +321,11 @@ static void hives_now(void)
     gfx_bevel(p, PEN_BG1, want ? PEN_AMBER : PEN_EDGE, PEN_BG0);     /* a pick: the box to look at */
     gfx_text(p->x + 4, p->y + 2, T_HIVE_P, sizeof T_HIVE_P - 1, PEN_CYAN, PEN_BG1);
     for (j = 0; j < NSYN; ++j) {
-        unsigned char lit = want >> j & 1, bg = lit ? PEN_EDGE : PEN_BG1;
-        unsigned char pen = !want || lit ? (lit ? PEN_WHITE : PEN_TEXT) : PEN_DIM;      /* a pick: the choices stand out, the rest recede */
+        unsigned char lit = want >> j & 1, bg = lit ? PEN_EDGEHI : PEN_BG1;
+        unsigned char pen = !want || lit ? (lit ? PEN_BG0 : PEN_TEXT) : PEN_DIM;      /* a pick: the choices stand out, the rest recede */
         row = LY.syn_row[j];
-        if (lit) {
-            gfx_rect(&row, bg);
-            gfx_frame(&row, PEN_AMBER);
-        }
+        if (lit)
+            gfx_rect(&row, bg);         /* the free ones: inverse, a band to look at */
         gfx_text(row.x, row.y, &syn_letter[j], 1, PEN_BG0, PEN_SYN + j);   /* the colour, with the letter that picks it */
         n = hive_size[j];
         if (n >= RULE_SAFESIZE && pen == PEN_TEXT)
@@ -338,7 +336,7 @@ static void hives_now(void)
             gfx_text_right(row.x + row.w, row.y, numtxt, l, n >= RULE_SAFESIZE ? PEN_STEEL : PEN_WHITE, bg);
         } else {
             ch = '-';
-            gfx_text_right(row.x + row.w, row.y, &ch, 1, PEN_DIM, bg);
+            gfx_text_right(row.x + row.w, row.y, &ch, 1, lit ? PEN_BG0 : PEN_DIM, bg);
         }
     }
     repaint_ice();
