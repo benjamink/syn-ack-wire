@@ -71,7 +71,7 @@ The 8-bit side. The server enforces every rule; the client draws what it is told
 | `src/amiga/sound.c`, `sndlogic.c` | Amiga: chords through `audio.device`, a note per queued write; `sndlogic.c` is which chord wins and the notes' periods (tested on the host) |
 | `src/amiga/prefs.c`, `prefs_io.c` | Amiga: the handle kept in `S:SynAckWire.prefs`, and `net_appkey` reading it |
 | `lib/fujinet-lib/` | fujinet-lib, a pinned copy (version and checksum in its README) |
-| `test/amiga_*_test.c`, `amiga_fake/` | Host tests for the Amiga layers (`make test-amiga-net test-amiga-keys test-amiga-sound test-amiga-prefs test-amiga-layout test-amiga-ui`), the network one against a scripted fake of fujinet-nio-lib |
+| `test/amiga_*_test.c`, `amiga_fake/` | Host tests for the Amiga layers (`make test-amiga-net test-amiga-keys test-amiga-sound test-amiga-prefs test-amiga-layout test-amiga-ui test-amiga-help test-amiga-menus test-amiga-palcycle`), the network one against a scripted fake of fujinet-nio-lib |
 | `test/amiga_accept.sh`, `amiga_accept_mouse.sh`, `amiga_server.py` | A whole autoplay game on the emulated A500 by keys, or by clicks on the widgets (`NTSC=1`, `CUT=1`); the scratch server says GAME OVER in its log |
 | `tools/amiga_mock.py`, `tools/test_amiga_mock.py` | The Amiga look drawn as PNGs at the real size (PAL and NTSC; `make amiga-mock`) and its 32-colour palette: `--header` writes `src/amiga/palette.h` (**generated**) |
 | `test/amiga/dial.c`, `test/amiga_rig_selfcheck.sh`, `tools/run-amiga.sh`, `amiga_guest.py` | The run rig: a stock A500 (Kickstart 1.3) in Amiberry against FujiNet NIO, and the check that it works |
@@ -1011,7 +1011,7 @@ from TNFS, as M.U.L.E.'s Intellivision client is booted); `synack.bin` and `syna
 | fujinet-lib 5.0.0 | 1712 | open/status/read_nb/write/close plus the cc65 runtime and memcpy/memmove it pulls in; the test and the library have since been removed from the repo |
 | `wiremon.xex` | 2982 | whole file, including cc65's Atari startup code |
 | **amiga** (2026-11-01, m68k gcc 15, `-Os`, nix13) | | |
-| `syn-ack-wire-amiga` | 55432 | whole file; text 41760, data 76, bss 4512 (step 2, graphics and mouse; 37032 in step 1 with the text display); about 280 KB of chip RAM stay free with the screen open |
+| `syn-ack-wire-amiga` | 68768 | whole file; text 53548, data 80, bss 6180 (step 3: menus, help pages, settings, title neon; 55432 in step 2, graphics and mouse; 37032 in step 1 with the text display); about 280 KB of chip RAM stay free with the screen open |
 | the screen | 20480 | chip RAM: 320×256, two bitplanes (PAL; 16000 on NTSC's 200 lines), opened by `start.c` |
 
 ## Tested (atari800 7.2.1 + FujiNet-PC 1.6 + server, NetSIO)
@@ -1044,7 +1044,7 @@ graphics, by mouse or keyboard; menus, the Region list, palette effects and inst
 - **Network:** `fujinet-nio.device` must already be loaded (`fujinet-load-resident`, from the user's startup). Replies
   are read in pieces of at most 128 bytes, polled about ten times a second while quiet; a dead line is reported after a
   3 second grace, and the common code redials with the seat token.
-- **Keys:** F1 or Help or `?` the instructions (not yet: the pages are step 3), F2 move hints, F3 sound, F4 seats as cards or as a table (a click on the seats does the same; PAL shows every netrunner with a header of syndicate letters, NTSC three rows: you, the seat to move, and the others one at a time under the arrows; not kept between runs), Return, Backspace,
+- **Keys:** F1 or Help or `?` the instructions (six pages, with a QR code to the manual), F2 move hints, F3 sound, F4 seats as cards or as a table (a click on the seats does the same; PAL shows every netrunner with a header of syndicate letters, NTSC three rows: you, the seat to move, and the others one at a time under the arrows; not kept between runs), Return, Backspace,
   Delete, Esc; cursor left and right page. Amiga-key chords are left to the menus. The mouse: the left button presses a widget (a kit node plays it, a hive node or a syndicate chooses, Buy/Undo/Yes/No/OK and the steppers in the windows; on the title JACK-IN and the buttons); the right button is Cancel. A press is debounced so a double click never queues a flood of keys.
 - **A floppy to try it on real hardware:** `tools/make-amiga-adf.sh` writes `build/amiga/syn-ack-wire-amiga.adf` (OFS, not bootable): the game with its icon, a `Start` script with an icon (it loads the FujiNet NIO device, then plays; `FUJINET_NIO_ADF_WB` picks the Workbench's NIO files, default `wb204`), and `nio/`. Boot your Workbench and open the disk. `tools/make_icon.py` draws the icons.
 - **Server:** the public one is built in (`make amiga URL=N:TCP://host:port/` builds for another). A player can point the client elsewhere without rebuilding: a line `SERVER=TCP://host:port/` in `S:SynAckWire.prefs` (an `N:` in front is accepted; an address that is not `TCP://` or is over 60 characters is ignored) is dialled instead, and kept when the handle is saved. Run your own server with `cd server && python3 -u serve.py --host 127.0.0.1 --port 6599 --trace`. On the rig, `AMIGA_PREFS_SERVER=TCP://127.0.0.1:6599/` writes that line first; the acceptance scripts take `USE_PREFS=1 URLPORT=6598` to build for a port nothing listens on and find the scratch server only through the prefs file.
@@ -1052,9 +1052,11 @@ graphics, by mouse or keyboard; menus, the Region list, palette effects and inst
 - **Sound:** chords as short notes through `audio.device`, the same pitches as the PC speaker's, on one channel (a write wants a single one); silence if the device is
   busy. The rules (which chord cuts which) are tested on the host; **the sound has not been heard**, only run.
 - **Testing:** the host tests (`make test-amiga-net test-amiga-keys test-amiga-sound
-  test-amiga-prefs test-amiga-layout test-amiga-ui`); `test/amiga_accept.sh` plays a whole autoplay game against bots on an emulated A500 on spare
+  test-amiga-prefs test-amiga-layout test-amiga-ui test-amiga-help test-amiga-menus test-amiga-palcycle`); `test/amiga_accept.sh` plays a whole autoplay game against bots on an emulated A500 on spare
   ports (PAL about 160 s, `NTSC=1` about 160 s, `CUT=1` stalls the serial bridge for 30 s, the server sees AMIGA leave
   and rejoin its seat, and the game ends); `test/amiga_accept_mouse.sh` does the same by clicks (about 120 s). `tools/run-amiga.sh` is the rig (`AMIGA_NTSC=true` for NTSC).
   Amiberry's serial port is a TCP pipe: real baud-rate overruns on a cable are **not** tested; that is on the hardware checklist.
 - **Quit:** Esc on the title, then Y (`platform_quit` is `exit(0)`; the destructors close everything). Not yet run in the emulator.
-- **Known gaps:** no instruction pages (F1 says so); `void main` returns no exit code; the loop never waits, so it uses all the CPU a stock A500 has (deferred: `WaitTOF()` in `in_key`).
+- **Remembered settings:** `S:SynAckWire.prefs` also holds `VIEW=TABLE|CARDS`, `HINTS=ON|OFF` and `SOUND=ON|OFF`, read at the start (a line the file lacks keeps the build's choice) and written when one changed, at the hello or on the way out.
+- **Title and waiting:** the logo's colours turn on the title (palette entries, put back on jack-in), with a burst of static every few seconds; the pointer is an hourglass while the link opens or closes.
+- **Known gaps:** `void main` returns no exit code; the loop never waits, so it uses all the CPU a stock A500 has (deferred: `WaitTOF()` in `in_key`).
