@@ -305,7 +305,7 @@ void display_hives(void)
 static void hives_now(void)
 {
     const struct rect *p = &LY.syn_panel;
-    struct rect row, sw;
+    struct rect row;
     unsigned char j, n, l;
     unsigned char want = pr_kind == 'F' ? pr[1] : pr_kind == 'K' ? pr[2] : 0;
     char ch;
@@ -317,10 +317,9 @@ static void hives_now(void)
         row = LY.syn_row[j];
         if (want >> j & 1)              /* the ones a pick may take */
             gfx_frame(&row, PEN_AMBER);
-        rect_set(&sw, row.x, row.y, 5, 7);
-        gfx_rect(&sw, PEN_SYN + j);
+        gfx_text(row.x, row.y, &syn_letter[j], 1, PEN_BG0, PEN_SYN + j);   /* the colour, with the letter that picks it */
         n = hive_size[j];
-        say(row.x + 8, row.y, syn_short[j], strlen(syn_short[j]), 8, PEN_TEXT, PEN_BG1);
+        say(row.x + 10, row.y, syn_short[j], strlen(syn_short[j]), 8, PEN_TEXT, PEN_BG1);
         if (n) {
             l = number(n, 0);
             gfx_text_right(row.x + row.w, row.y, numtxt, l, n >= RULE_SAFESIZE ? PEN_STEEL : PEN_WHITE, PEN_BG1);
@@ -693,7 +692,7 @@ static void prompt_now(void)
             break;
         case 'S': ask = "START WITH HOW MANY SEATS? 2-6"; break;
         case 'P': ask = "RUN WHICH " T_EXPLOIT "? PRESS 1-6"; break;
-        case 'F': ask = "PRESS A SYNDICATE LETTER"; break;
+        case 'F': ask = "PICK A LIT SYNDICATE"; break;
         case 'K': ask = pr[1] ? "TIE! ABSORB WHICH NEXT?" : "TIE! WHICH SURVIVES?"; break;
         case 'D':
             ask = step ? T_SWAP " 2 FOR 1, HOW MANY? " : T_CASHOUT " HOW MANY? ";

@@ -116,10 +116,11 @@ static void draw_buy(void)
     for (i = 0; i < NSYN; ++i) {
         const struct rect *row = &LY.dlg_row[i];
         unsigned char on = pr[4 + i] != 0, y = row->y + off, bg = i & 1 ? PEN_BG2 : PEN_BG1;
-        struct rect sw = { w->x + 8, y, 6, LY.ntsc ? 8 : 9 };
+        struct rect sw = { w->x + 8, y, 8, LY.ntsc ? 8 : 9 };
         gfx_rect(row, bg);
         gfx_rect(&sw, on ? PEN_SYN + i : PEN_SYN_DIM + i);
-        gfx_text(w->x + 18, y, syn_short[i], strlen(syn_short[i]), on ? PEN_WHITE : PEN_DIM, bg);
+        gfx_text(sw.x, y, &syn_letter[i], 1, PEN_BG0, on ? PEN_SYN + i : PEN_SYN_DIM + i);   /* the key that buys it */
+        gfx_text(w->x + 20, y, syn_short[i], strlen(syn_short[i]), on ? PEN_WHITE : PEN_DIM, bg);
         if (on) {
             l = number(pr[4 + i], 1);
             num_at(w->x + 100, y, l, 5, PEN_AMBER, bg);
