@@ -71,7 +71,7 @@ The 8-bit side. The server enforces every rule; the client draws what it is told
 | `src/amiga/sound.c`, `sndlogic.c` | Amiga: chords through `audio.device`, a note per queued write; `sndlogic.c` is which chord wins and the notes' periods (tested on the host) |
 | `src/amiga/prefs.c`, `prefs_io.c` | Amiga: the handle kept in `S:SynAckWire.prefs`, and `net_appkey` reading it |
 | `lib/fujinet-lib/` | fujinet-lib, a pinned copy (version and checksum in its README) |
-| `test/amiga_*_test.c`, `amiga_fake/` | Host tests for the Amiga layers (`make test-amiga-net test-amiga-keys test-amiga-sound test-amiga-prefs test-amiga-layout test-amiga-ui test-amiga-help test-amiga-menus test-amiga-palcycle test-amiga-fxmath`), the network one against a scripted fake of fujinet-nio-lib |
+| `test/amiga_*_test.c`, `amiga_fake/` | Host tests for the Amiga layers (`make test-amiga-net test-amiga-keys test-amiga-sound test-amiga-prefs test-amiga-layout test-amiga-ui test-amiga-help test-amiga-menus test-amiga-palcycle`), the network one against a scripted fake of fujinet-nio-lib |
 | `test/amiga_accept.sh`, `amiga_accept_mouse.sh`, `amiga_server.py` | A whole autoplay game on the emulated A500 by keys, or by clicks on the widgets (`NTSC=1`, `CUT=1`); the scratch server says GAME OVER in its log |
 | `tools/amiga_mock.py`, `tools/test_amiga_mock.py` | The Amiga look drawn as PNGs at the real size (PAL and NTSC; `make amiga-mock`) and its 32-colour palette: `--header` writes `src/amiga/palette.h` (**generated**) |
 | `test/amiga/dial.c`, `test/amiga_rig_selfcheck.sh`, `tools/run-amiga.sh`, `amiga_guest.py` | The run rig: a stock A500 (Kickstart 1.3) in Amiberry against FujiNet NIO, and the check that it works |
@@ -1011,7 +1011,7 @@ from TNFS, as M.U.L.E.'s Intellivision client is booted); `synack.bin` and `syna
 | fujinet-lib 5.0.0 | 1712 | open/status/read_nb/write/close plus the cc65 runtime and memcpy/memmove it pulls in; the test and the library have since been removed from the repo |
 | `wiremon.xex` | 2982 | whole file, including cc65's Atari startup code |
 | **amiga** (2026-11-01, m68k gcc 15, `-Os`, nix13) | | |
-| `syn-ack-wire-amiga` | 93100 | whole file; the title picture is 21,978 B of it (step 3: menus, help pages, settings, title picture with colour cycling; 55432 in step 2, graphics and mouse; 37032 in step 1 with the text display); about 280 KB of chip RAM stay free with the screen open |
+| `syn-ack-wire-amiga` | 92656 | whole file; the title picture is 22,214 B of it (step 3: menus, help pages, settings, title picture with colour cycling; 55432 in step 2, graphics and mouse; 37032 in step 1 with the text display); about 280 KB of chip RAM stay free with the screen open |
 | the screen | 20480 | chip RAM: 320×256, two bitplanes (PAL; 16000 on NTSC's 200 lines), opened by `start.c` |
 
 ## Tested (atari800 7.2.1 + FujiNet-PC 1.6 + server, NetSIO)
@@ -1029,11 +1029,11 @@ from TNFS, as M.U.L.E.'s Intellivision client is booted); `synack.bin` and `syna
 
 ## Amiga (amiga)
 
-The title screen is a painted 320 x 256 picture (matrix rain, the glitching logo, circuit board, a wireframe globe over a grid
-floor), made by `tools/amiga_title_art.py` into `src/amiga/title_art.c` (packed planes and palette; the output is committed, since the
-font it paints with differs from machine to machine). `gfx_art` unpacks it into the screen and loads its palette; the logo's seven
-pens turn (colour cycling) so a light runs along the letters, and a sine scroller runs in the strip under it. The buttons and panels
-use pens the picture leaves alone; the game's palette comes back when play starts.
+The title screen is a painted 320 x 256 picture (a chrome logo with a mirror image under it, digital rain, circuit board, a wireframe
+globe over a grid floor), made by `tools/amiga_title_art.py` into `src/amiga/title_art.c` (packed planes and palette; the output is
+committed, since the font it paints with differs from machine to machine). `gfx_art` unpacks it into the screen and loads its
+palette; the seven pens of the logo's rim turn (colour cycling), so a light runs round the letters. The buttons and panels use pens the
+picture leaves alone; the game's palette comes back when play starts.
 
 A stock A500 with Kickstart and Workbench 1.3 or later, 512 KB, the FujiNet on the serial port. This is step 2 of
 the Amiga client (`docs/superpowers/specs/2026-11-01-amiga-client-design.md`): the game plays on the circuit-board
@@ -1058,7 +1058,7 @@ graphics, by mouse or keyboard; menus, the Region list, palette effects and inst
 - **Sound:** chords as short notes through `audio.device`, the same pitches as the PC speaker's, on one channel (a write wants a single one); silence if the device is
   busy. The rules (which chord cuts which) are tested on the host; **the sound has not been heard**, only run.
 - **Testing:** the host tests (`make test-amiga-net test-amiga-keys test-amiga-sound
-  test-amiga-prefs test-amiga-layout test-amiga-ui test-amiga-help test-amiga-menus test-amiga-palcycle test-amiga-fxmath`); `test/amiga_accept.sh` plays a whole autoplay game against bots on an emulated A500 on spare
+  test-amiga-prefs test-amiga-layout test-amiga-ui test-amiga-help test-amiga-menus test-amiga-palcycle`); `test/amiga_accept.sh` plays a whole autoplay game against bots on an emulated A500 on spare
   ports (PAL about 160 s, `NTSC=1` about 160 s, `CUT=1` stalls the serial bridge for 30 s, the server sees AMIGA leave
   and rejoin its seat, and the game ends); `test/amiga_accept_mouse.sh` does the same by clicks (about 120 s). `tools/run-amiga.sh` is the rig (`AMIGA_NTSC=true` for NTSC).
   Amiberry's serial port is a TCP pipe: real baud-rate overruns on a cable are **not** tested; that is on the hardware checklist.

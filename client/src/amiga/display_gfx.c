@@ -13,7 +13,6 @@
 #include "gfx.h"
 #include "ui.h"
 #include "help.h"
-#include "title_fx.h"
 #include "title_art.h"
 
 #define LY      amiga_layout
@@ -940,7 +939,7 @@ void display_title_update(void)
 #define NEON_PENS 7                     /* PEN_SYN .. PEN_SYN + 6, the picture's logo ramp: turned on the title, never in play */
 #define NEON_EVERY 2                    /* ticks between turns */
 
-/* The title's life: the logo's colours run along it and the scroller moves. */
+/* The title's life: the light in the logo's rim runs round it. */
 void display_title_idle(void)
 {
     static unsigned char last;
@@ -951,8 +950,6 @@ void display_title_idle(void)
         return;
     last = now;
     gfx_cycle(PEN_SYN, NEON_PENS, 1);
-    if (!dialog_up())
-        title_fx_step();                /* a window over the title is left alone */
 }
 
 void display_title_screen(void)
@@ -977,7 +974,8 @@ void display_title_screen(void)
         display_message(refused == REFUSED_LATE ? "TOO LATE: THE LAST SEAT WAS TAKEN" : "THAT HANDLE IS TAKEN");
     else
         display_message("TYPE A HANDLE, THEN RETURN. ESC QUITS");
-    title_fx_paint();
+    if (!LY.ntsc)                       /* in the dark band above the floor */
+        gfx_text(12, 194, "FUJINET RS-232", 14, PEN_STEEL, PEN_BG0);
     display_title_update();
 }
 

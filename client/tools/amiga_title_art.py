@@ -21,13 +21,14 @@ TITLE = tomllib.load(open(os.path.join(ROOT, "theme", "theme.toml"), "rb"))["gam
 pal = [int(m, 16) for m in re.findall(r"0x([0-9A-F]{4}),", open(os.path.join(HERE, "..", "src", "amiga", "palette.h")).read())]
 assert len(pal) == 32
 FREE = {                                # the picture's own colours (0x0RGB)
-    8: 0x0066, 9: 0x00A9, 10: 0x00DD, 11: 0x08FF, 12: 0x00DD, 13: 0x00A9, 14: 0x0066,      # the logo's ramp, a light that runs along it
-    20: 0x0021, 21: 0x0053, 22: 0x0086, 23: 0x00B8, 24: 0x00F9, 25: 0x06FB, 26: 0x0CFD,    # phosphor green, dark to bright
+    8: 0x0012, 9: 0x0035, 10: 0x008B, 11: 0x00DF, 12: 0x008B, 13: 0x0035, 14: 0x0012,      # the logo's rim glow: a light that runs round it
+    20: 0x0DFF, 21: 0x09CF, 22: 0x058D, 23: 0x0247,                                       # chrome, the sky half: bright to dark
+    24: 0x0A62, 25: 0x0D94, 26: 0x0FB6,                                                   # chrome, the ground half: brown to gold
 }
 pal = [FREE.get(i, c) for i, c in enumerate(pal)]
-BG0, BG1, BG2, EDGE, EDGEHI, WHITE, DIM, STEEL, CYAN, AMBER, RED, MAG = 0, 4, 5, 6, 7, 3, 2, 29, 15, 16, 27, 31
+BG0, BG1, BG2, EDGE, EDGEHI, WHITE, DIM, STEEL, CYAN, AMBER, RED, MAG, TEXT = 0, 4, 5, 6, 7, 3, 2, 29, 15, 16, 27, 31, 1
 RAMP = list(range(8, 15))
-GREEN = [BG0, 20, 21, 22, 23, 24, 25, 26]
+RAIN = [BG0, BG1, BG2, EDGE, EDGEHI, STEEL, CYAN, WHITE]
 
 BAYER = np.array([[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]) / 16.0
 img = np.zeros((H, W), np.uint8)
@@ -57,13 +58,13 @@ for x in range(0, W, 3):
             y = head - k
             if 0 <= y < SKY_END:
                 lvl = 7 if k == 0 else max(1, 6 - k * 6 // ln)
-                img[y, x] = GREEN[lvl]
+                img[y, x] = RAIN[lvl]
                 if k == 0 and x + 1 < W:
-                    img[y, x + 1] = GREEN[3]
+                    img[y, x + 1] = RAIN[3]
 for _ in range(120):                                  # stray glyph specks in the dark between the columns
     x, y = rng.randint(0, W), rng.randint(0, SKY_END)
     if img[y, x] == BG0:
-        img[y, x] = [20, 21][rng.randint(0, 2)]
+        img[y, x] = [BG1, BG2][rng.randint(0, 2)]
 
 # the ticker strip (the scroller runs in rows 66..83, which are pen 0), with tick marks along its rules
 img[64] = EDGEHI
@@ -104,7 +105,7 @@ img[190:HOR] = BG0
 for _ in range(30):
     x, y = rng.randint(0, W), rng.randint(191, HOR - 2)
     img[y, x] = [BG2, EDGE, DIM, STEEL][rng.randint(0, 4)]
-img[HOR - 7:HOR] = ramp_pick(np.broadcast_to(((np.arange(7)[:, None] + 1) / 7.0), (7, W)), GREEN)
+img[HOR - 7:HOR] = ramp_pick(np.broadcast_to(((np.arange(7)[:, None] + 1) / 7.0), (7, W)), RAIN)
 img[HOR:H] = BG1
 GR, GCX, GCY = 19, 160, HOR + 1
 rr2 = (xs - GCX) ** 2 + (ys - GCY) ** 2
@@ -113,13 +114,13 @@ img[globe] = BG0
 for k in range(-3, 4):                                # meridians: ellipses of shrinking width
     ex = GR * abs(k) / 4.0
     if k == 0:
-        img[globe & (np.abs(xs - GCX) < 1)] = 24
+        img[globe & (np.abs(xs - GCX) < 1)] = CYAN
     else:
         ell = np.abs(((xs - GCX) / max(ex, 1)) ** 2 + ((ys - GCY) / float(GR)) ** 2 - 1) < 0.08
-        img[globe & ell] = 23
+        img[globe & ell] = EDGEHI
 for lat in (6, 12, 18):                               # parallels
-    img[globe & (np.abs(ys - (HOR - lat)) < 1)] = 22
-img[(np.abs(rr2 - GR * GR) < GR * 2) & (ys < HOR)] = 25        # the rim
+    img[globe & (np.abs(ys - (HOR - lat)) < 1)] = EDGE
+img[(np.abs(rr2 - GR * GR) < GR * 2) & (ys < HOR)] = CYAN        # the rim
 for i in range(6):                                    # floor lines, closer together towards the horizon
     y = HOR + int((i / 6.0) ** 2 * (H - HOR))
     img[y, :] = CYAN if i < 3 else EDGEHI
@@ -128,7 +129,7 @@ for j in range(-7, 8):                                # and the lines that run t
         x = int(160 + j * 56 * (y - HOR + 1) / (H - HOR))
         if 0 <= x < W:
             img[y, x] = CYAN
-img[HOR, :] = 25
+img[HOR, :] = CYAN
 
 # HUD corner brackets round the whole picture
 for (bx, by, sx, sy) in ((1, 1, 1, 1), (W - 2, 1, -1, 1), (1, H - 2, 1, -1), (W - 2, H - 2, -1, -1)):
@@ -136,7 +137,9 @@ for (bx, by, sx, sy) in ((1, 1, 1, 1), (W - 2, 1, -1, 1), (1, H - 2, 1, -1), (W 
         img[by, bx + sx * k] = CYAN
         img[by + sy * k, bx] = CYAN
 
-# the logo: big, slanted, a ramp for a fill (colour-cycled at run time), a white top light, a dark outline and a shadow
+# the logo: big, slanted chrome. The letters take a sky-blue gradient over a dark horizon line and a gold ground below it, a bevel
+# (a light top-left edge, a shaded bottom-right one), glare and sparkles; a dark outline and a rim of light (the pens that colour
+# cycling turns) round it; and a faint reflection in the strip below.
 size = 60
 while True:
     f = ImageFont.truetype(FONT, size)
@@ -151,8 +154,6 @@ tx = (W - (rr - l)) // 2 - l
 ty = 8 - t_
 dm.text((tx, ty), TITLE, font=f, fill=1)
 mask = np.array(m, bool)
-for y0, h, dx in ((19, 2, -3), (39, 2, 3)):      # glitch: thin slices of the logo slip sideways
-    mask[y0:y0 + h] = np.roll(mask[y0:y0 + h], dx, axis=1)
 ys_in = np.where(mask.any(axis=1))[0]
 top_y, bot_y = ys_in.min(), ys_in.max()
 
@@ -167,20 +168,48 @@ def grow(a, n):
     return out
 
 
+def up(a, n=1):                                       # the shape moved down by n: what is "above" each pixel
+    return np.roll(a, n, axis=0)
+
+
+# the reflection first (the logo goes over it): the letters mirrored under their baseline, every other pixel, fading
+mirror = np.zeros_like(mask)
+span = 63 - (bot_y + 3)
+for k in range(max(span, 0)):
+    src, dst = bot_y - k, bot_y + 3 + k
+    if src >= top_y and dst < 64:
+        mirror[dst] = mask[src]
+chk = (xs + ys) % 2 == 0
+fade = (ys - (bot_y + 3)) < span * 0.6
+img[mirror & chk & fade] = 23
+img[mirror & ~chk & (ys - (bot_y + 3) < span * 0.25)] = 23
+
 outline = grow(mask, 2)
+rim = grow(mask, 4) & ~outline
 shadow = np.roll(np.roll(grow(mask, 2), 3, axis=0), 2, axis=1)
-img[shadow & ~outline] = BG0
+img[shadow & ~outline & ~rim] = BG0
+img[rim] = np.array(RAMP)[((xs + ys) // 5) % 7][rim]  # the rim of light: diagonal bands of the glow ramp, colour-cycled at run time
 img[outline & ~mask] = BG0
-img[np.roll(mask, -2, axis=1) & ~mask] = MAG          # the colour fringes of a screen out of register
-band = ((xs // 9 + ys // 5) % 7)                      # diagonal bands of the ramp: cycling runs a light along the letters
-fill = np.array(RAMP)[band]
-img[mask] = fill[mask]
-edge_top = mask & ~np.roll(mask, 1, axis=0)         # the top light
-edge_top2 = mask & np.roll(edge_top, 1, axis=0)
-img[edge_top] = WHITE
-img[edge_top2 & ~edge_top] = np.where((xs[edge_top2 & ~edge_top] % 2) == 0, WHITE, img[edge_top2 & ~edge_top])
-low = mask & ~np.roll(mask, -1, axis=0)             # the bottom shade
-img[low] = BG1
+
+t = (ys - top_y) / float(bot_y - top_y + 1)
+HORIZON = 0.52
+sky = ramp_pick(np.clip(t / HORIZON, 0, 1), [WHITE, 20, 21, 22, 23])
+ground = ramp_pick(np.clip((t - HORIZON - 0.04) / (1 - HORIZON - 0.04), 0, 1), [24, 25, 26, TEXT])
+chrome = np.where(t < HORIZON, sky, np.where(t < HORIZON + 0.04, BG1, ground))
+img[mask] = chrome[mask]
+# the glare: a slanted band of white across the sky half, and the bevel
+glare = mask & (t < HORIZON) & (np.abs((xs + ys * 2) % 96 - 30) < 3)
+img[glare] = WHITE
+light = mask & (~up(mask, 1) | ~np.roll(mask, 1, axis=1))               # top and left edges
+shade = mask & (~np.roll(mask, -1, axis=0) | ~np.roll(mask, -1, axis=1))  # bottom and right edges
+img[light] = WHITE
+img[shade & ~light] = BG1
+for sx in (74, 205, 262):                             # sparkles: a four-point star of light
+    sy = top_y + 5 + (sx % 7)
+    img[sy - 3:sy + 4, sx] = WHITE
+    img[sy, sx - 3:sx + 4] = WHITE
+    img[sy - 1:sy + 2, sx - 1:sx + 2] = CYAN
+    img[sy, sx] = WHITE
 
 if len(sys.argv) > 1:
     rgb = np.array([[(c >> 8 & 15) * 17, (c >> 4 & 15) * 17, (c & 15) * 17] for c in pal], np.uint8)

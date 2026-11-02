@@ -15,7 +15,6 @@ void gfx_rect(const struct rect *r, unsigned char pen);
 void gfx_line(short x0, short y0, short x1, short y1, unsigned char pen);
 void gfx_dot(short x, short y, unsigned char pen);
 unsigned char gfx_peek(short x, short y);   /* the pen at a pixel */
-void gfx_scroll(const struct rect *r, short dx, unsigned char bg);   /* the part moves left by dx, the gap filled with bg */
 void gfx_frame(const struct rect *r, unsigned char pen);                 /* a 1-pixel outline just inside r */
 void gfx_bevel(const struct rect *r, unsigned char fill, unsigned char hi, unsigned char lo);
 void gfx_text(short x, short y, const char *s, unsigned char n, unsigned char pen, unsigned char bg);   /* y: the glyph top */

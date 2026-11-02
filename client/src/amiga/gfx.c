@@ -213,12 +213,6 @@ unsigned char gfx_peek(short x, short y)
     return (unsigned char)ReadPixel(rp, x, y);
 }
 
-void gfx_scroll(const struct rect *r, short dx, unsigned char bg)
-{
-    SetBPen(rp, bg);
-    ScrollRaster(rp, dx, 0, r->x, r->y, r->x + r->w - 1, r->y + r->h - 1);
-}
-
 void gfx_frame(const struct rect *r, unsigned char pen)
 {
     short x1 = r->x + r->w - 1, y1 = r->y + r->h - 1;
