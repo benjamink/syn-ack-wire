@@ -1011,7 +1011,7 @@ from TNFS, as M.U.L.E.'s Intellivision client is booted); `synack.bin` and `syna
 | fujinet-lib 5.0.0 | 1712 | open/status/read_nb/write/close plus the cc65 runtime and memcpy/memmove it pulls in; the test and the library have since been removed from the repo |
 | `wiremon.xex` | 2982 | whole file, including cc65's Atari startup code |
 | **amiga** (2026-11-01, m68k gcc 15, `-Os`, nix13) | | |
-| `syn-ack-wire-amiga` | 92656 | whole file; the title picture is 22,214 B of it (step 3: menus, help pages, settings, title picture with colour cycling; 55432 in step 2, graphics and mouse; 37032 in step 1 with the text display); about 280 KB of chip RAM stay free with the screen open |
+| `syn-ack-wire-amiga` | 95140 | whole file; the title picture is 24,098 B of it (step 3: menus, help pages, settings, title picture with colour cycling; 55432 in step 2, graphics and mouse; 37032 in step 1 with the text display); about 280 KB of chip RAM stay free with the screen open |
 | the screen | 20480 | chip RAM: 320×256, two bitplanes (PAL; 16000 on NTSC's 200 lines), opened by `start.c` |
 
 ## Tested (atari800 7.2.1 + FujiNet-PC 1.6 + server, NetSIO)
@@ -1029,11 +1029,12 @@ from TNFS, as M.U.L.E.'s Intellivision client is booted); `synack.bin` and `syna
 
 ## Amiga (amiga)
 
-The title screen is a painted 320 x 256 picture (a chrome logo with a mirror image under it, digital rain, circuit board, a wireframe
-globe over a grid floor), made by `tools/amiga_title_art.py` into `src/amiga/title_art.c` (packed planes and palette; the output is
-committed, since the font it paints with differs from machine to machine). `gfx_art` unpacks it into the screen and loads its
-palette; the seven pens of the logo's rim turn (colour cycling), so a light runs round the letters. The buttons and panels use pens the
-picture leaves alone; the game's palette comes back when play starts.
+The title screen is a painted 320 x 256 picture, made by `tools/amiga_title_art.py` into `src/amiga/title_art.c` (packed planes and
+palette; the output is committed, since it depends on the machine's Pillow). The logo is the title art every platform shares
+(`src/atari/title4.atascii`: boxed outlines, the letters their enclosed strokes) drawn large, the strokes in chrome with TV snow, over
+digital rain, circuit board and a wireframe globe on a grid floor. `gfx_art` unpacks it into the screen and loads its palette; the seven
+pens of the logo's rim and snow turn (colour cycling), so a light runs round the letters and the snow twinkles. The buttons and panels
+use pens the picture leaves alone; the game's palette comes back when play starts.
 
 A stock A500 with Kickstart and Workbench 1.3 or later, 512 KB, the FujiNet on the serial port. This is step 2 of
 the Amiga client (`docs/superpowers/specs/2026-11-01-amiga-client-design.md`): the game plays on the circuit-board

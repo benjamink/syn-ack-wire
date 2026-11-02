@@ -47,8 +47,8 @@ def ramp_pick(t, ramp):
 
 rng = np.random.RandomState(1990)
 
-# the rain: columns of falling phosphor with a bright head, behind the logo
-SKY_END = 64
+# the rain: columns of falling light, behind the logo (which is the shared title art, drawn below)
+SKY_END = 88
 img[:SKY_END] = BG0
 for x in range(0, W, 3):
     if rng.rand() < 0.8:
@@ -61,37 +61,31 @@ for x in range(0, W, 3):
                 img[y, x] = RAIN[lvl]
                 if k == 0 and x + 1 < W:
                     img[y, x + 1] = RAIN[3]
-for _ in range(120):                                  # stray glyph specks in the dark between the columns
+for _ in range(120):                                  # stray specks in the dark between the columns
     x, y = rng.randint(0, W), rng.randint(0, SKY_END)
     if img[y, x] == BG0:
         img[y, x] = [BG1, BG2][rng.randint(0, 2)]
-
-# the ticker strip (the scroller runs in rows 66..83, which are pen 0), with tick marks along its rules
-img[64] = EDGEHI
-img[65] = EDGE
-img[66:84] = BG0
-img[84] = EDGE
-img[85] = EDGEHI
+img[SKY_END] = EDGE
+img[SKY_END + 1] = EDGEHI
 for x in range(0, W, 8):
-    img[63, x] = CYAN if x % 64 == 0 else EDGE
-    img[86, x] = CYAN if x % 64 == 0 else EDGE
+    img[SKY_END + 2, x] = CYAN if x % 64 == 0 else EDGE
 
-# below the strip: a board of circuit traces (the panels and buttons cover most of it), and stray stars of light
-img[87:190] = BG0
+# below the logo: a board of circuit traces (the panels and buttons cover most of it), and stray stars of light
+img[SKY_END + 3:190] = BG0
 for y in range(96, 190, 16):
     for x in range(8, W, 16):
         img[y, x] = BG2
 for _ in range(34):                                   # a trace walks in straight runs and 45 degree bends and ends in a pad
-    x, y = int(rng.randint(0, W)), int(rng.randint(90, 188))
+    x, y = int(rng.randint(0, W)), int(rng.randint(SKY_END + 4, 188))
     dx, dy = [(1, 0), (-1, 0), (0, 1), (0, -1)][rng.randint(0, 4)]
     for seg in range(rng.randint(3, 7)):
         for _ in range(rng.randint(6, 24)):
-            if 0 <= x < W and 87 <= y < 190:
+            if 0 <= x < W and SKY_END + 3 <= y < 190:
                 img[y, x] = EDGE
             x += dx; y += dy
         dx, dy = [(dx, dy), (dy, dx), (-dy, -dx), (dx + dy, dy - dx) if dx and not dy else (dx, dy)][rng.randint(0, 3)]
         dx, dy = max(-1, min(1, dx)), max(-1, min(1, dy))
-    if 1 <= x < W - 1 and 88 <= y < 189:
+    if 1 <= x < W - 1 and SKY_END + 4 <= y < 189:
         img[y - 1:y + 2, x - 1:x + 2] = CYAN
         img[y, x] = BG0
 for x in range(0, 24):                                # the board's edge connectors, left and right
@@ -137,25 +131,40 @@ for (bx, by, sx, sy) in ((1, 1, 1, 1), (W - 2, 1, -1, 1), (1, H - 2, 1, -1), (W 
         img[by, bx + sx * k] = CYAN
         img[by + sy * k, bx] = CYAN
 
-# the logo: big, slanted chrome. The letters take a sky-blue gradient over a dark horizon line and a gold ground below it, a bevel
-# (a light top-left edge, a shaded bottom-right one), glare and sparkles; a dark outline and a rim of light (the pens that colour
-# cycling turns) round it; and a faint reflection in the strip below.
-size = 60
-while True:
-    f = ImageFont.truetype(FONT, size)
-    l, t_, rr, b = f.getbbox(TITLE)
-    if rr - l <= 304 or size < 20:
-        break
-    size -= 1
-m = Image.new("1", (W, H), 0)
-dm = ImageDraw.Draw(m)
-dm.fontmode = "1"
-tx = (W - (rr - l)) // 2 - l
-ty = 8 - t_
-dm.text((tx, ty), TITLE, font=f, fill=1)
-mask = np.array(m, bool)
-ys_in = np.where(mask.any(axis=1))[0]
-top_y, bot_y = ys_in.min(), ys_in.max()
+# the logo: the title art every platform shares (src/atari/title4.atascii: boxed outlines whose letters are the enclosed gaps),
+# drawn large. The walls are thin steel lines; the letters are the strokes, filled with chrome (a sky-blue gradient over a dark
+# horizon, then gold, for each of the two rows), bevelled, with glare and sparkles, in a rim of light that colour cycling turns.
+sys.path.insert(0, HERE)
+import title_art as shared
+
+ART = os.path.join(HERE, "..", "src", "atari", "title4.atascii")
+art = shared.load(ART)
+stroke = shared.strokes(art)
+CW, CH = 9, 6
+cols = [c for line in art for c, b in enumerate(line) if b != 0x20]
+c_lo, c_hi = min(cols), max(cols)
+X0 = (W - (c_hi - c_lo + 1) * CW) // 2 - c_lo * CW
+Y0 = 3
+mask = np.zeros((H, W), bool)
+walls = np.zeros((H, W), bool)
+bands = [(r.start, r.stop) for r in shared.bands(art)]
+for r, c in stroke:
+    mask[Y0 + r * CH:Y0 + (r + 1) * CH, X0 + c * CW:X0 + (c + 1) * CW] = True
+UP, DOWN, LEFT, RIGHT = 1, 2, 4, 8
+SIDES = {0x7C: UP | DOWN, 0x12: LEFT | RIGHT, 0x11: DOWN | RIGHT, 0x05: DOWN | LEFT, 0x1A: UP | RIGHT, 0x03: UP | LEFT,
+         0x17: LEFT | RIGHT | DOWN, 0x18: LEFT | RIGHT | UP, 0x04: UP | DOWN | LEFT, 0x01: UP | DOWN | RIGHT, 0x13: UP | DOWN | LEFT | RIGHT}
+for r, line in enumerate(art):
+    for c, b in enumerate(line):
+        x, y = X0 + c * CW, Y0 + r * CH
+        if b in (0x0B, 0x0C):                           # the hyphen: a bar of quarter blocks
+            mask[y:y + CH // 2 + 1, x:x + CW] = True
+        elif b in SIDES:
+            m = SIDES[b]
+            cx, cy = x + CW // 2, y + CH // 2
+            if m & UP: walls[y:cy + 1, cx - 1:cx + 1] = True
+            if m & DOWN: walls[cy:y + CH, cx - 1:cx + 1] = True
+            if m & LEFT: walls[cy - 1:cy + 1, x:cx + 1] = True
+            if m & RIGHT: walls[cy - 1:cy + 1, cx:x + CW] = True
 
 
 def grow(a, n):
@@ -168,45 +177,35 @@ def grow(a, n):
     return out
 
 
-def up(a, n=1):                                       # the shape moved down by n: what is "above" each pixel
-    return np.roll(a, n, axis=0)
-
-
-# the reflection first (the logo goes over it): the letters mirrored under their baseline, every other pixel, fading
-mirror = np.zeros_like(mask)
-span = 63 - (bot_y + 3)
-for k in range(max(span, 0)):
-    src, dst = bot_y - k, bot_y + 3 + k
-    if src >= top_y and dst < 64:
-        mirror[dst] = mask[src]
-chk = (xs + ys) % 2 == 0
-fade = (ys - (bot_y + 3)) < span * 0.6
-img[mirror & chk & fade] = 23
-img[mirror & ~chk & (ys - (bot_y + 3) < span * 0.25)] = 23
-
-outline = grow(mask, 2)
-rim = grow(mask, 4) & ~outline
-shadow = np.roll(np.roll(grow(mask, 2), 3, axis=0), 2, axis=1)
-img[shadow & ~outline & ~rim] = BG0
+rim = grow(mask, 3) & ~grow(mask, 1)
 img[rim] = np.array(RAMP)[((xs + ys) // 5) % 7][rim]  # the rim of light: diagonal bands of the glow ramp, colour-cycled at run time
-img[outline & ~mask] = BG0
+img[walls] = TEXT                                      # the walls: thin pale lines
+img[np.roll(walls, 1, axis=0) & ~walls & ~mask] = DIM  # and a shade under them
+img[grow(mask, 1) & ~mask] = BG0                       # a dark edge round each letter
 
-t = (ys - top_y) / float(bot_y - top_y + 1)
-HORIZON = 0.52
+t = np.zeros((H, W))                                   # how far down its own row of letters each pixel is
+for (r0, r1) in bands:
+    top, bot = Y0 + r0 * CH, Y0 + r1 * CH
+    t[top:bot] = ((ys[top:bot] - top) / float(bot - top))
+HORIZON = 0.55
 sky = ramp_pick(np.clip(t / HORIZON, 0, 1), [WHITE, 20, 21, 22, 23])
-ground = ramp_pick(np.clip((t - HORIZON - 0.04) / (1 - HORIZON - 0.04), 0, 1), [24, 25, 26, TEXT])
-chrome = np.where(t < HORIZON, sky, np.where(t < HORIZON + 0.04, BG1, ground))
+ground = ramp_pick(np.clip((t - HORIZON - 0.05) / (1 - HORIZON - 0.05), 0, 1), [24, 25, 26, TEXT])
+chrome = np.where(t < HORIZON, sky, np.where(t < HORIZON + 0.05, BG1, ground))
 img[mask] = chrome[mask]
-# the glare: a slanted band of white across the sky half, and the bevel
+snow = mask & (np.repeat(rng.rand(H, W // 2), 2, axis=1) < 0.30)   # TV snow in the letters, as on the other platforms: the glow ramp's
+img[snow] = np.array(RAMP)[np.repeat(rng.randint(0, 7, (H, W // 2)), 2, axis=1)][snow]   # pens, so colour cycling makes it twinkle
 glare = mask & (t < HORIZON) & (np.abs((xs + ys * 2) % 96 - 30) < 3)
 img[glare] = WHITE
-light = mask & (~up(mask, 1) | ~np.roll(mask, 1, axis=1))               # top and left edges
-shade = mask & (~np.roll(mask, -1, axis=0) | ~np.roll(mask, -1, axis=1))  # bottom and right edges
+light = mask & (~np.roll(mask, 1, axis=0) | ~np.roll(mask, 1, axis=1))                    # top and left edges
+shade = mask & (~np.roll(mask, -1, axis=0) | ~np.roll(mask, -1, axis=1))                  # bottom and right edges
 img[light] = WHITE
 img[shade & ~light] = BG1
-for sx in (74, 205, 262):                             # sparkles: a four-point star of light
-    sy = top_y + 5 + (sx % 7)
-    img[sy - 3:sy + 4, sx] = WHITE
+cand = np.argwhere(mask[:Y0 + 4 * CH] & ~np.roll(mask, 1, axis=0)[:Y0 + 4 * CH])           # sparkles: four-point stars on top edges
+cand = cand[np.argsort(cand[:, 1])]
+for q in (len(cand) // 6, len(cand) // 2, len(cand) * 5 // 6):
+    sy, sx = cand[q]
+    sy += 1
+    img[max(sy - 3, 0):sy + 4, sx] = WHITE
     img[sy, sx - 3:sx + 4] = WHITE
     img[sy - 1:sy + 2, sx - 1:sx + 2] = CYAN
     img[sy, sx] = WHITE
