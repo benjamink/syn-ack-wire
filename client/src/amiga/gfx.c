@@ -27,6 +27,8 @@ static struct TextFont *font;
 static UWORD *checker;                  /* the dim pattern, then the hatch's: the blitter reads them, so they sit in chip RAM */
 static UWORD *stripes;
 
+static const UWORD *base_pal;           /* the picture's palette while the title shows it: what gfx_cycle turns, and what gfx_cycle_end leaves */
+
 static struct BitMap aside;             /* gfx_save's copy */
 static struct RastPort aside_rp;
 static struct rect aside_r;
@@ -104,7 +106,7 @@ void gfx_cycle(unsigned char first, unsigned char n, unsigned char step)
         return;
     if (!cycling) {
         for (i = 0; i < 32; ++i)
-            live[i] = amiga_palette[i];
+            live[i] = base_pal ? base_pal[i] : amiga_palette[i];
         cycling = 1;
     }
     palcycle(live + first, n, step);
@@ -113,9 +115,51 @@ void gfx_cycle(unsigned char first, unsigned char n, unsigned char step)
 
 void gfx_cycle_end(void)
 {
-    if (cycling && scr)
+    if ((cycling || base_pal) && scr)
         LoadRGB4(&scr->ViewPort, (UWORD *)amiga_palette, 32);
     cycling = 0;
+    base_pal = 0;
+}
+
+/* The packed picture (tools/amiga_title_art.py): the five planes of 40 bytes a row, one after the other, as runs and literals
+ * (control c: 0..127 copies c + 1 bytes, 129..255 repeats the next byte 257 - c times). It is unpacked straight into the screen's planes,
+ * as far as the screen has rows (NTSC stops at 200), and its palette is loaded. */
+void gfx_art(const unsigned char *packed, unsigned short len, const unsigned short *palette)
+{
+    struct BitMap *bm;
+    unsigned short i = 0, n, c, row = 0, col = 0, rows, bpr;
+    unsigned char plane = 0, b;
+
+    if (!rp)
+        return;
+    bm = rp->BitMap;
+    if (bm->Depth < 5)
+        return;
+    rows = bm->Rows < 256 ? bm->Rows : 256;
+    bpr = bm->BytesPerRow;
+    while (i < len && plane < 5) {      /* running counters: a divide for every byte would take seconds on a 68000 */
+        c = packed[i++];
+        if (c == 128)
+            continue;
+        n = c < 128 ? c + 1 : 257 - c;
+        for (; n && plane < 5; --n) {
+            b = c < 128 ? packed[i++] : packed[i];
+            if (row < rows && col < bpr)
+                bm->Planes[plane][(unsigned long)row * bpr + col] = b;
+            if (++col == 40) {
+                col = 0;
+                if (++row == 256) {
+                    row = 0;
+                    ++plane;
+                }
+            }
+        }
+        if (c > 128)
+            ++i;
+    }
+    cycling = 0;                        /* no flash through the game's colours: the picture's go straight in */
+    base_pal = palette;
+    LoadRGB4(&scr->ViewPort, (UWORD *)palette, 32);
 }
 
 void gfx_close(void)
@@ -151,6 +195,28 @@ static void line(short x0, short y0, short x1, short y1, unsigned char pen)
     SetAPen(rp, pen);
     Move(rp, x0, y0);
     Draw(rp, x1, y1);
+}
+
+void gfx_line(short x0, short y0, short x1, short y1, unsigned char pen)
+{
+    line(x0, y0, x1, y1, pen);
+}
+
+void gfx_dot(short x, short y, unsigned char pen)
+{
+    SetAPen(rp, pen);
+    WritePixel(rp, x, y);
+}
+
+unsigned char gfx_peek(short x, short y)
+{
+    return (unsigned char)ReadPixel(rp, x, y);
+}
+
+void gfx_scroll(const struct rect *r, short dx, unsigned char bg)
+{
+    SetBPen(rp, bg);
+    ScrollRaster(rp, dx, 0, r->x, r->y, r->x + r->w - 1, r->y + r->h - 1);
 }
 
 void gfx_frame(const struct rect *r, unsigned char pen)

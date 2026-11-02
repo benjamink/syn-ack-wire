@@ -13,6 +13,8 @@
 #include "gfx.h"
 #include "ui.h"
 #include "help.h"
+#include "title_fx.h"
+#include "title_art.h"
 
 #define LY      amiga_layout
 #define YEN     0xA5                    /* Topaz is ISO Latin-1: the server's "\" is a yen here */
@@ -935,31 +937,13 @@ void display_title_update(void)
     title_buttons();
 }
 
-static void title_logo(void)
-{
-    static const unsigned char ramp[12] = { PEN_CYAN, PEN_SYN, PEN_SYN + 2, PEN_MAG, PEN_SYN + 4, PEN_AMBER,
-                                            PEN_SYN + 6, PEN_SYN + 3, PEN_SYN + 5, PEN_GREEN, PEN_CYAN, PEN_SYN };
-    struct rect r;
-    unsigned char i, n = sizeof TH_TITLE - 1;
-    short x = (320 - n * 24) / 2;
+#define NEON_PENS 7                     /* PEN_SYN .. PEN_SYN + 6, the picture's logo ramp: turned on the title, never in play */
+#define NEON_EVERY 2                    /* ticks between turns */
 
-    rect_set(&r, 0, 36, 320, 28);       /* clear the band: a burst of static leaves lines in it */
-    gfx_rect(&r, PEN_BG0);
-    for (i = 0; i < n; ++i) {
-        gfx_glyph(x + i * 24 + 2, 40, TH_TITLE[i], 3, PEN_BG2);         /* a shadow, then the letter */
-        gfx_glyph(x + i * 24, 38, TH_TITLE[i], 3, ramp[i % 12]);
-    }
-}
-
-#define NEON_PENS 7                     /* PEN_SYN .. PEN_SYN + 6, the logo's own colours: turned on the title, never in play */
-#define NEON_EVERY 3                    /* ticks between turns */
-#define STATIC_EVERY 100                /* turns between bursts of static, about six seconds */
-
-/* The title's life: the logo's colours turn one place at a time, and now and then a burst of lines crosses it. */
+/* The title's life: the logo's colours run along it and the scroller moves. */
 void display_title_idle(void)
 {
-    static unsigned char last, turns, burst;
-    struct rect r;
+    static unsigned char last;
     unsigned char now = ticks();
 
     title_up = 1;
@@ -967,43 +951,18 @@ void display_title_idle(void)
         return;
     last = now;
     gfx_cycle(PEN_SYN, NEON_PENS, 1);
-    if (burst) {
-        burst = 0;
-        title_logo();                   /* the logo as it was */
-    } else if (++turns >= STATIC_EVERY) {
-        turns = 0;
-        burst = 1;
-        rect_set(&r, 20, 40 + (now & 15), 280, 1);
-        gfx_rect(&r, PEN_DIM);
-        rect_set(&r, 40, 48 + (now & 7), 240, 1);
-        gfx_rect(&r, PEN_STEEL);
-    }
+    if (!dialog_up())
+        title_fx_step();                /* a window over the title is left alone */
 }
 
 void display_title_screen(void)
 {
-    struct rect r, p;
-    unsigned char i, n = sizeof TH_TITLE - 1;
+    struct rect p;
 
     field = 0;
     ui_title_mode(1);
     dialog_quit_ask(0);
-    rect_set(&r, 0, 0, LY.width, LY.height);
-    gfx_rect(&r, PEN_BG0);
-    for (i = 0; i < 6; ++i) {           /* circuit traces in the corners, ending in a pad */
-        short y = 40 + (i % 3) * 16, len = 30 + 8 * i % 24;
-        rect_set(&r, i < 3 ? 0 : 320 - len, y, len, 1);
-        gfx_rect(&r, PEN_EDGE);
-        rect_set(&r, i < 3 ? len - 1 : 320 - len - 1, y - 1, 3, 3);
-        gfx_rect(&r, PEN_CYAN);
-    }
-    gfx_rect(&LY.header, PEN_BG2);
-    rect_set(&r, 0, 10, 320, 1);
-    gfx_rect(&r, PEN_EDGE);
-    gfx_text(6, 1, TH_TITLE, n, PEN_WHITE, PEN_BG2);
-    title_logo();
-    rect_set(&r, 40, 84, 240, 1);
-    gfx_rect(&r, PEN_EDGE);
+    gfx_art(title_art, title_art_len, title_art_palette);      /* the picture: logo, skyline, floor; the rest goes on top */
     rect_set(&p, PANEL_X, 94, 272, 36);
     gfx_bevel(&p, PEN_BG1, PEN_EDGE, PEN_BG0);
     gfx_text(PANEL_X + 8, 99, "REGION", 6, PEN_DIM, PEN_BG1);
@@ -1013,13 +972,12 @@ void display_title_screen(void)
     gfx_bevel(&p, PEN_BG0, PEN_BG0, PEN_EDGEHI);
     rect_set(&p, VAL_X + 2, 140, 76, 12);
     gfx_frame(&p, PEN_EDGE);
-    if (!LY.ntsc)
-        gfx_text(PANEL_X + 8, 236, "FUJINET RS-232", 14, PEN_STEEL, PEN_BG0);
     gfx_bevel(&LY.prompt, PEN_BG2, PEN_EDGE, PEN_BG0);
     if (refused)
         display_message(refused == REFUSED_LATE ? "TOO LATE: THE LAST SEAT WAS TAKEN" : "THAT HANDLE IS TAKEN");
     else
         display_message("TYPE A HANDLE, THEN RETURN. ESC QUITS");
+    title_fx_paint();
     display_title_update();
 }
 
