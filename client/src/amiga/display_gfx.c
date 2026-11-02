@@ -565,6 +565,21 @@ static void paint_table_ntsc(void)
     }
 }
 
+unsigned char amiga_in_play(void)
+{
+    return field;
+}
+
+unsigned char amiga_helping(void)
+{
+    return helping;
+}
+
+unsigned char amiga_table_view(void)
+{
+    return table_view;
+}
+
 /* F4 or a click on the seats: cards or table. Not while a window or the help covers them (their saved picture would come back). */
 void amiga_toggle_table(void)
 {
@@ -824,6 +839,7 @@ void display_playfield(void)
     }
     field = 1;
     ui_title_mode(0);
+    menus_update();
     paint_all();
 }
 
@@ -934,6 +950,7 @@ static unsigned char help_pg;
 void help_open(void)
 {
     helping = 1;
+    menus_update();
     help_pg = 1;
     ui_help_mode(1);
     help_draw(help_pg);
@@ -951,6 +968,7 @@ unsigned char help_key(unsigned char k)
     if (k != K_ESC && k != K_RETURN && k != K_HELP)
         return 1;
     helping = 0;
+    menus_update();
     ui_help_mode(0);
     if (field)
         paint_all();

@@ -17,6 +17,11 @@ static unsigned char busy;
 static unsigned char saved;             /* the playfield under the window is kept aside, to put back */
 static unsigned char quit_q;            /* the title's "quit?" question is up */
 
+unsigned char dialog_quit_open(void)
+{
+    return quit_q;
+}
+
 unsigned char dialog_up(void)
 {
     return shown != 0;
@@ -263,6 +268,7 @@ void dialog_sync(void)
     if (shown)
         draw_window(shown);
     busy = 0;
+    menus_update();
 }
 
 /* The title's quit question: Y quits and anything else is a no, by key or by click (ui_ask_yes_no). */
@@ -271,6 +277,7 @@ void dialog_quit_ask(unsigned char on)
     struct rect below;
     quit_q = on;
     ui_ask_yes_no(on);
+    menus_update();
     if (!on)
         return;
     below.x = 0; below.y = LY.header.h; below.w = LY.width; below.h = LY.prompt.y - LY.header.h;

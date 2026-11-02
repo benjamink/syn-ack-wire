@@ -17,6 +17,7 @@
 #include "keys.h"
 #include "gfx.h"
 #include "ui.h"
+#include "menudef.h"
 
 #define RING 32
 
@@ -91,6 +92,20 @@ static void push(unsigned char k)
     }
 }
 
+/* A key from the keyboard, a click or a menu: the ones that are not the game's (sound, the seats' view, a Region) are done
+ * here and never reach it; the rest are queued for it. */
+static void act(unsigned char k)
+{
+    if (k == AK_SOUND)                  /* F3, or the SOUND button, or its menu item */
+        snd_toggle();
+    else if (k == AK_TABLE)
+        amiga_toggle_table();
+    else if (k >= AK_REGION && k < AK_REGION + 16)
+        menus_region(k - AK_REGION);
+    else
+        push(k);
+}
+
 /* A mouse press is the keys the keyboard would type for the widget under it (ui.c). One press is taken at a time: the
  * second of a double click within a few ticks is dropped (ui_press_ok), and so is any press while the key ring is half
  * full, so a held or hammered button never queues a flood of keys that the game then replays. */
@@ -107,14 +122,8 @@ void amiga_click(unsigned char button, short x, short y)
             return;
     }
     n = ui_click(&amiga_layout, x, y, button, keys);
-    for (i = 0; i < n; ++i) {
-        if (keys[i] == AK_SOUND)        /* the SOUND button: as F3, the game never sees it */
-            snd_toggle();
-        else if (keys[i] == AK_TABLE)
-            amiga_toggle_table();
-        else
-            push(keys[i]);
-    }
+    for (i = 0; i < n; ++i)
+        act(keys[i]);
     if (ui_dirty())
         dialog_sync();                  /* a stepper moved */
     if (n)
@@ -139,12 +148,8 @@ static void take_rawkey(UWORD code, UWORD qualifier, APTR address)
         n = RawKeyConvert(&ie, (UBYTE *)buf, sizeof buf, 0);
     }
     k = amiga_key_translate(code, qualifier, n == 1 ? buf[0] : 0);
-    if (k == AK_SOUND)
-        snd_toggle();
-    else if (k == AK_TABLE)
-        amiga_toggle_table();
-    else if (k)
-        push(k);
+    if (k)
+        act(k);
 }
 
 unsigned char in_key(void)
@@ -160,8 +165,15 @@ unsigned char in_key(void)
             APTR address = m->IAddress;
             WORD mx = m->MouseX, my = m->MouseY;
 
+            if (class == IDCMP_MENUVERIFY)
+                menus_refresh();        /* before the reply, which lets the menu open */
             ReplyMsg((struct Message *)m);
-            if (class == IDCMP_RAWKEY)
+            if (class == IDCMP_MENUPICK) {
+                while (code != MENUNULL) {      /* a chain: each item picked, in order */
+                    act(menu_item_key(MENUNUM(code), ITEMNUM(code)));
+                    code = menus_next(code);
+                }
+            } else if (class == IDCMP_RAWKEY)
                 take_rawkey(code, qualifier, address);
             else if (class == IDCMP_MOUSEBUTTONS && code == SELECTDOWN)
                 amiga_click(UI_LEFT, mx, my);

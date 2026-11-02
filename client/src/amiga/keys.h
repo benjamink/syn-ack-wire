@@ -4,6 +4,7 @@
 
 #define AK_SOUND 0x03                   /* F3: handled by in_key, never reaches the game */
 #define AK_TABLE 0x04                   /* F4, or a click on the seats: cards or table, done by in_key */
+#define AK_REGION 0x10                  /* + n: the Region menu's n-th server, chosen on the title (up to 0x1A) */
 
 /* code: the IDCMP raw key code (bit 7 set is a key up), qualifier: IEQUALIFIER_*,
  * ascii: what the console device made of the key (0 if nothing). Returns 0 for a key the game ignores. */

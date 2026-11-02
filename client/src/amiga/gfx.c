@@ -61,7 +61,7 @@ unsigned char gfx_open(unsigned short *width, unsigned short *height)
     nw.Height = h;
     nw.DetailPen = 0;
     nw.BlockPen = 1;
-    nw.IDCMPFlags = IDCMP_RAWKEY | IDCMP_MOUSEBUTTONS;
+    nw.IDCMPFlags = IDCMP_RAWKEY | IDCMP_MOUSEBUTTONS | IDCMP_MENUPICK | IDCMP_MENUVERIFY;
     nw.Flags = BORDERLESS | BACKDROP | ACTIVATE | RMBTRAP | NOCAREREFRESH;
     nw.Screen = scr;
     nw.Type = CUSTOMSCREEN;
@@ -99,6 +99,7 @@ void gfx_close(void)
     if (checker)
         FreeMem(checker, 12);
     checker = stripes = 0;
+    menus_close();
     amiga_pointer_clear(amiga_win);
     if (amiga_win)
         CloseWindow(amiga_win);

@@ -660,20 +660,20 @@ $(AMIGA_B)/gfxdemo: test/amiga/gfxdemo.c src/amiga/gfx.c src/amiga/layout.c $(wi
 
 # the game: the common code, the MS-DOS text display drawing into an array (PC_SCREEN) and src/amiga/ putting that on screen
 AMIGASRC = src/common/main.c src/common/game.c src/common/proto.c \
-           $(addprefix src/amiga/,net_fn.c input.c keys.c layout.c ui.c gfx.c pointer.c dialog.c display_gfx.c help.c start.c sound.c sndlogic.c prefs.c prefs_io.c)
+           $(addprefix src/amiga/,net_fn.c input.c keys.c layout.c ui.c gfx.c pointer.c dialog.c display_gfx.c help.c menudef.c menus.c start.c sound.c sndlogic.c prefs.c prefs_io.c)
 AMIGADEFS = -DFANCY_TITLE=1 -DFANCY_PLAYFIELD=1 -DDISPLAY_IDLE=1 -DQUIT_TO_OS=1 -DQUIT_ASK='"QUIT? Y/N"' -Wno-main $(AMIGA_XDEFS)   # AMIGA_XDEFS: extras for one build, e.g. -DDRAWLOG
-$(AMIGA_B)/syn-ack-wire-amiga: $(AMIGASRC) $(HDRS) $(wildcard src/amiga/*.h) src/amiga/help_tab.h $(AMIGA_NIOLIB) | $(AMIGA_B)
+$(AMIGA_B)/syn-ack-wire-amiga: $(AMIGASRC) $(HDRS) $(wildcard src/amiga/*.h) src/amiga/help_tab.h src/amiga/regions_tab.h $(AMIGA_NIOLIB) | $(AMIGA_B)
 	$(AMIGA_CC) $(AMIGA_FLAGS) $(DEFS) $(AMIGADEFS) $(AMIGASRC) $(AMIGA_NIOLIB) -o $@
 	@echo "$@: $$(stat -c %s $@) bytes"
 amiga: $(AMIGA_B)/syn-ack-wire-amiga
 # the autoplay build: plays by itself (make amiga-test URL=N:TCP://127.0.0.1:6599/), no screen dumps
-$(AMIGA_B)/synack-amiga-auto: $(AMIGASRC) test/autoplay.c test/amiga_dump.c $(HDRS) $(wildcard src/amiga/*.h) src/amiga/help_tab.h $(AMIGA_NIOLIB) | $(AMIGA_B)
+$(AMIGA_B)/synack-amiga-auto: $(AMIGASRC) test/autoplay.c test/amiga_dump.c $(HDRS) $(wildcard src/amiga/*.h) src/amiga/help_tab.h src/amiga/regions_tab.h $(AMIGA_NIOLIB) | $(AMIGA_B)
 	$(AMIGA_CC) $(AMIGA_FLAGS) $(DEFS) $(AMIGADEFS) -DAUTOPLAY -DDUMP_TICKS=0 -DKEY_TICKS=6 -DAUTO_HANDLE='"AMIGA"' \
 	    $(AMIGASRC) test/autoplay.c test/amiga_dump.c $(AMIGA_NIOLIB) -o $@
 	@echo "$@: $$(stat -c %s $@) bytes"
 amiga-test: $(AMIGA_B)/synack-amiga-auto
 # the same, answering by mouse: every key the autoplayer would press for a prompt is a click on its widget
-$(AMIGA_B)/synack-amiga-mouse: $(AMIGASRC) test/autoplay.c test/amiga_autoclick.c test/amiga_dump.c $(HDRS) $(wildcard src/amiga/*.h) src/amiga/help_tab.h $(AMIGA_NIOLIB) | $(AMIGA_B)
+$(AMIGA_B)/synack-amiga-mouse: $(AMIGASRC) test/autoplay.c test/amiga_autoclick.c test/amiga_dump.c $(HDRS) $(wildcard src/amiga/*.h) src/amiga/help_tab.h src/amiga/regions_tab.h $(AMIGA_NIOLIB) | $(AMIGA_B)
 	$(AMIGA_CC) $(AMIGA_FLAGS) $(DEFS) $(AMIGADEFS) -DAUTOPLAY -DAUTOCLICK -DDUMP_TICKS=0 -DKEY_TICKS=6 -DAUTO_HANDLE='"AMIGA"' \
 	    $(AMIGASRC) test/autoplay.c test/amiga_autoclick.c test/amiga_dump.c $(AMIGA_NIOLIB) -o $@
 	@echo "$@: $$(stat -c %s $@) bytes"
@@ -724,6 +724,14 @@ test-amiga-sound: test/amiga_sound_test.c src/amiga/sndlogic.c src/amiga/sndlogi
 	    test/amiga_sound_test.c src/amiga/sndlogic.c
 	build/test/amiga_sound_test
 
+# the Region menu's servers, from the same file as the desktop client's
+src/amiga/regions_tab.h: ../server/servers.fly.toml ../fly.toml ../tools/gen_regions.py
+	python3 ../tools/gen_regions.py h > $@
+test-amiga-menus: test/amiga_menus_test.c src/amiga/menudef.c src/amiga/menudef.h src/amiga/keys.h src/amiga/regions_tab.h
+	mkdir -p build/test
+	gcc -g -std=gnu99 -Wall -Wno-main -funsigned-char -D__fastcall__= -o build/test/amiga_menus_test \
+	    test/amiga_menus_test.c src/amiga/menudef.c
+	build/test/amiga_menus_test
 test-amiga-prefs: test/amiga_prefs_test.c src/amiga/prefs.c src/amiga/prefs.h
 	mkdir -p build/test
 	gcc -g -std=gnu99 -Wall -Wno-main -funsigned-char -o build/test/amiga_prefs_test \
@@ -733,6 +741,6 @@ test-amiga-prefs: test/amiga_prefs_test.c src/amiga/prefs.c src/amiga/prefs.h
 clean:
 	rm -rf build
 
-.PHONY: FORCE all atr atrtest atari-nio test-atari-nio test-atari-nio-6502 test pc pc-apple2 pc-msdos pc-coco pc-nes pc-adam pc-h89 apple2_text apple2_text-po msdos msdos-img msdos-test msdos-wiremon coco coco-dsk coco-auto nes nestest nes-auto h89 h89-disk h89-wiremon adam adamtest adam-auto intv intvtest intv-auto test-amiga-net test-amiga-keys test-amiga-present test-amiga-sound test-amiga-prefs amiga amiga-test test-amiga-mock amiga-mock test-amiga-layout test-amiga-ui amiga-test-mouse test-amiga-help clean
+.PHONY: FORCE all atr atrtest atari-nio test-atari-nio test-atari-nio-6502 test pc pc-apple2 pc-msdos pc-coco pc-nes pc-adam pc-h89 apple2_text apple2_text-po msdos msdos-img msdos-test msdos-wiremon coco coco-dsk coco-auto nes nestest nes-auto h89 h89-disk h89-wiremon adam adamtest adam-auto intv intvtest intv-auto test-amiga-net test-amiga-keys test-amiga-present test-amiga-sound test-amiga-prefs amiga amiga-test test-amiga-mock amiga-mock test-amiga-layout test-amiga-ui amiga-test-mouse test-amiga-help test-amiga-menus clean
 .PRECIOUS: $(B)/%.s $(B)/%.o $(A2)/%.s $(A2)/%.o $(COCO)/%.o $(NES)/%.s $(NES)/%.o $(ADAM)/%.o
 .DELETE_ON_ERROR:
