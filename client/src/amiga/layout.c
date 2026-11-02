@@ -26,8 +26,8 @@ static void dialogs(struct layout *l, unsigned char ntsc)
         set(&l->btn[BTN_SEAT2 + i], wx + 14 + i * 42, wy + 58, 36, 16);
     set(&l->btn[BTN_OK], wx + 90, wy + 80, 48, 16);
     set(&l->ask, 62, wy + 104, 196, 56);
-    set(&l->btn[BTN_YES], l->ask.x + 24, wy + 122, 36, 16);
-    set(&l->btn[BTN_NO], l->ask.x + l->ask.w - 24 - 28, wy + 122, 28, 16);
+    set(&l->btn[BTN_YES], l->ask.x + 24, wy + 104 + 32, 36, 16);
+    set(&l->btn[BTN_NO], l->ask.x + l->ask.w - 24 - 28, wy + 104 + 32, 28, 16);
 }
 
 /* The title's row of buttons, one row on both heights (the NTSC strip starts at 190). */

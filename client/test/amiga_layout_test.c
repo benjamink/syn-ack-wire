@@ -114,6 +114,19 @@ static void test_syn_and_kit_hits_roundtrip(void)
         CHECK(layout_syn_at(&l, 0, 0) == -1 && layout_kit_at(&l, 0, 0) == -1);
     }
 }
+static void test_question_buttons_sit_below_its_text(void)
+{
+    struct layout p, n;
+    const struct layout *l[2] = { &p, &n };
+    int i;
+    layout_make(&p, 256);
+    layout_make(&n, 200);
+    for (i = 0; i < 2; ++i) {
+        const struct rect *w = &l[i]->ask, *y = &l[i]->btn[BTN_YES], *no = &l[i]->btn[BTN_NO];
+        CHECK(y->y >= w->y + 20 + 8 && no->y >= w->y + 20 + 8);          /* the question is a line at +20, 8 high */
+        CHECK(y->y + y->h <= w->y + w->h && no->y + no->h <= w->y + w->h);
+    }
+}
 static void test_seats_area_holds_every_seat_widget(void)
 {
     struct layout p, n;
@@ -240,7 +253,7 @@ int main(void)
 {
     RUN(test_every_rect_within_screen); RUN(test_no_overlap_between_panels); RUN(test_node_roundtrip);
     RUN(test_node_borders_half_open); RUN(test_gaps_are_not_nodes); RUN(test_syn_and_kit_hits_roundtrip);
-    RUN(test_seats_area_holds_every_seat_widget); RUN(test_ntsc_shows_me_and_mover); RUN(test_height_clamps); RUN(test_title_buttons_in_one_row_above_the_prompt);
+    RUN(test_question_buttons_sit_below_its_text); RUN(test_seats_area_holds_every_seat_widget); RUN(test_ntsc_shows_me_and_mover); RUN(test_height_clamps); RUN(test_title_buttons_in_one_row_above_the_prompt);
     RUN(test_log_holds_three_lines_and_clears_the_rest); RUN(test_dialog_fits_above_prompt); RUN(test_buttons_inside_dialog_and_disjoint);
     printf("%d tests, %d failures\n", ran, failures);
     return failures != 0;
