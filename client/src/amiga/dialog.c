@@ -22,6 +22,17 @@ unsigned char dialog_up(void)
     return shown != 0;
 }
 
+/* The whole screen was repainted from the game state: what was saved under the window is out of date, so drop it
+ * unblitted; dialog_sync then opens the window again over the fresh paint. */
+void dialog_forget(void)
+{
+    if (!shown || busy)
+        return;
+    gfx_discard();
+    saved = 0;
+    shown = 0;
+}
+
 /* which window the game state calls for */
 static char wanted(void)
 {
@@ -236,6 +247,7 @@ void dialog_sync(void)
             if (saved) {                /* what was behind it: put back, and what changed meanwhile is painted next */
                 gfx_restore();
                 saved = 0;
+                display_kit_stale();    /* the restored picture has the kit panel as it was */
             } else
                 display_repaint();      /* no memory to keep it in: from the game state */
         }

@@ -19,6 +19,7 @@ void gfx_text_right(short right, short y, const char *s, unsigned char n, unsign
 void gfx_glyph(short x, short y, unsigned char ch, unsigned char scale, unsigned char pen);   /* a Topaz glyph, each pixel scale x scale */
 void gfx_hatch(const struct rect *r, unsigned char pen_a, unsigned char pen_b);   /* the Black ICE armour */
 unsigned char gfx_save(const struct rect *r);   /* copy that part of the screen aside (chip RAM); 0 if there is no memory for it */
+void gfx_discard(void);                 /* free the saved part without putting it back (the screen was repainted meanwhile) */
 void gfx_restore(void);                 /* put the saved part back and free it */
 void gfx_dim(const struct rect *r, unsigned char pen);                   /* a checkerboard of pen over what is there */
 

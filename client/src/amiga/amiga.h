@@ -5,11 +5,13 @@
 struct Window;
 extern struct Window *amiga_win;        /* the game window; NULL until start.c has opened it */
 
-void amiga_scroll_others(signed char d);   /* NTSC: the seat list up (-1) or down (1) */
 void amiga_pointer_set(struct Window *w);    /* the game's arrow for this window */
 void amiga_pointer_clear(struct Window *w);  /* the system's back, and the image freed */
 void dialog_sync(void);                 /* open, redraw, change or close the dialog the game state calls for */
 void dialog_quit_ask(unsigned char on); /* the title's quit question, over the dimmed title */
+void dialog_forget(void);               /* a full repaint is coming: drop what the window saved */
+void display_kit_stale(void);           /* the kit panel must be drawn again at the next prompt */
+unsigned char amiga_scroll_others(signed char d);   /* NTSC: the seat list up (-1) or down (1); 1 if it took the click */
 unsigned char dialog_up(void);          /* a dialog is open: the playfield's parts keep their hands off the screen */
 void display_repaint(void);             /* the whole playfield again from the game state */
 unsigned char amiga_display_open(void); /* the screen and window; 0 on failure, with nothing left open */

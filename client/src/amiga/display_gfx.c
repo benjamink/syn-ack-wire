@@ -440,12 +440,20 @@ static void paint_seat_area_ntsc(void)
     }
 }
 
-void amiga_scroll_others(signed char d)
+void display_kit_stale(void)
 {
-    if (!LY.ntsc || !field || (d < 0 && !others_top))
-        return;
+    kit_valid = 0;
+}
+
+unsigned char amiga_scroll_others(signed char d)
+{
+    if (!LY.ntsc || !field || helping || dialog_up())
+        return 0;                       /* not on screen: the click is the window's */
+    if (d < 0 && !others_top)
+        return 1;
     others_top += d;
     paint_seat_area_ntsc();
+    return 1;
 }
 
 void display_seat(unsigned char seat)
@@ -523,7 +531,8 @@ static void prompt_now(void)
     const char *ask = 0;
 
     dialog_sync();                      /* the window this prompt calls for, or the playfield again */
-    draw_kit(0);
+    if (!dialog_up())
+        draw_kit(0);                    /* never over a window; display_kit_stale makes it catch up on close */
     want = pr_kind == 'F' ? pr[1] : pr_kind == 'K' ? pr[2] : 0;
     if (field && want != marked)
         dirty_hives = 1;
@@ -630,6 +639,7 @@ static void paint_all(void)
 {
     unsigned char i;
     struct rect screen, t;
+    dialog_forget();
     rect_set(&screen, 0, 0, LY.width, LY.height);
     gfx_rect(&screen, PEN_BG0);
     gfx_rect(&LY.header, PEN_BG2);

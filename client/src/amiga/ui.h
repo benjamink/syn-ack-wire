@@ -20,6 +20,7 @@ void ui_ask_yes_no(unsigned char on);   /* a Y/N question is on screen (the titl
 unsigned char ui_press_ok(unsigned char now, unsigned char queued, unsigned char ring);
 void ui_press_taken(unsigned char now);
 void ui_press_forget(void);
+void ui_press_age(unsigned char now);      /* called every pass: the gap is over, so a later wrap cannot look like a recent press */
 
 void ui_reset(void);                    /* forget the hivejack stepper */
 unsigned char ui_dirty(void);           /* the dialog changed (a stepper moved): draw it again; clears the flag */

@@ -6,12 +6,13 @@
 static unsigned char count;             /* the hivejack stepper */
 static unsigned char sold;              /* what the first step settled on */
 static unsigned char dirty;
+static unsigned char moved;             /* the stepper was used since the window opened */
 static unsigned char title, yesno;
 static unsigned char last_press, have_press;
 
 void ui_title_mode(unsigned char on) { title = on; }
 void ui_ask_yes_no(unsigned char on) { yesno = on; }
-void ui_reset(void) { count = 0; sold = 0; dirty = 1; }
+void ui_reset(void) { count = 0; sold = 0; moved = 0; dirty = 1; }
 unsigned char ui_dirty(void) { unsigned char d = dirty; dirty = 0; return d; }
 unsigned char ui_count(void) { return count; }
 
@@ -23,6 +24,11 @@ unsigned char ui_press_ok(unsigned char now, unsigned char queued, unsigned char
 }
 void ui_press_taken(unsigned char now) { last_press = now; have_press = 1; }
 void ui_press_forget(void) { have_press = 0; }
+void ui_press_age(unsigned char now)
+{
+    if (have_press && (unsigned char)(now - last_press) >= UI_PRESS_GAP)
+        have_press = 0;
+}
 
 static unsigned char one(unsigned char *keys, unsigned char k) { keys[0] = k; return 1; }
 
@@ -45,17 +51,22 @@ static unsigned char hivejack(const struct layout *l, short x, short y, unsigned
     if (b == BTN_PLUS) {
         m = stepper_max();
         t = step ? 2 : 1;
-        if (count + t <= m) { count += t; dirty = 1; }
+        if (count + t <= m) { count += t; moved = 1; dirty = 1; }
     } else if (b == BTN_MINUS) {
         t = step ? 2 : 1;
-        if (count >= t) { count -= t; dirty = 1; }
+        if (count >= t) { count -= t; moved = 1; dirty = 1; }
     } else if (b == BTN_OK) {
+        if (edit_len && !moved) {       /* the window shows the digits typed: send those, not the stepper's 0 */
+            if (!step) sold = edit_len > 1 ? 10 * (edit[0] - '0') + edit[1] - '0' : edit[0] - '0';
+            count = 0; dirty = 1;
+            return one(keys, K_RETURN);
+        }
         for (t = 0; t < edit_len; ++t) keys[n++] = K_DELETE;
         if (count >= 10) keys[n++] = '0' + count / 10;
         keys[n++] = '0' + count % 10;
         keys[n++] = K_RETURN;
         if (!step) sold = count;
-        count = 0; dirty = 1;
+        moved = 0; count = 0; dirty = 1;
     }
     return n;
 }

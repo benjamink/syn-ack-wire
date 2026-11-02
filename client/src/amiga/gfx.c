@@ -252,6 +252,12 @@ unsigned char gfx_save(const struct rect *r)
     return 1;
 }
 
+void gfx_discard(void)
+{
+    while (aside_planes)
+        FreeRaster(aside.Planes[--aside_planes], aside_r.w, aside_r.h);
+}
+
 void gfx_restore(void)
 {
     if (!aside_planes)

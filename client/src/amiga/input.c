@@ -101,14 +101,10 @@ void amiga_click(unsigned char button, short x, short y)
     if (!ui_press_ok(tick, (ring_head - ring_tail) & (RING - 1), RING))
         return;
     if (button == UI_LEFT && amiga_layout.ntsc) {       /* the seat list's arrows */
-        if (layout_inside(&amiga_layout.scroll_up, x, y)) {
-            amiga_scroll_others(-1);
+        if (layout_inside(&amiga_layout.scroll_up, x, y) && amiga_scroll_others(-1))
             return;
-        }
-        if (layout_inside(&amiga_layout.scroll_down, x, y)) {
-            amiga_scroll_others(1);
+        if (layout_inside(&amiga_layout.scroll_down, x, y) && amiga_scroll_others(1))
             return;
-        }
     }
     n = ui_click(&amiga_layout, x, y, button, keys);
     for (i = 0; i < n; ++i) {
@@ -152,6 +148,7 @@ unsigned char in_key(void)
     struct IntuiMessage *m;
     unsigned char k;
 
+    ui_press_age(tick);
     if (amiga_win) {
         while ((m = (struct IntuiMessage *)GetMsg(amiga_win->UserPort)) != 0) {
             ULONG class = m->Class;
