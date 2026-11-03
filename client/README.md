@@ -170,7 +170,7 @@ setting alone. The game leaves display interrupts enabled during SIO in both cas
 or a failed cache reset may leave HSIO enabled and can cause communication failures at high speed.
 
 Measured with cc65 V2.19 Git 37d4bb24 and the pinned release, both using the public server: the default XEX is
-12,828 bytes and the NIO XEX is 19,770 bytes, an increase of 6,942 bytes. The configured URL changes the size.
+12,718 bytes and the NIO XEX is 19,770 bytes, an increase of 7,052 bytes. The configured URL changes the size.
 The FileDevice request and normalized URL reuse the receive ring while it is idle.
 
 ## Play it in the emulator
@@ -363,13 +363,14 @@ log with no screen: `HEADLESS=1 tools/run-test.sh build/atari/wiremon-auto.xex`.
   - It stops at the end of the ring's page. If bytes are left behind, `ready` stays set and the next poll gets them.
   - Call it from the main loop, never from an interrupt.
 - **Our own SIO**, not the OS's (from the GEOS port's disk driver): POKEY and the PIA directly, polled with IRQs
-  masked, always 19200, the DCB at $0300 holding the call as for SIOV. It makes no SIO beeps, leaves channels 1
+  masked, always 19200. It makes no SIO beeps, leaves channels 1
   and 2 alone, and nothing that hooks SIOV (a U1MB's or Incognito's high-speed SIO) changes its speed. The OS's
   VBI and the DLIs still run (a byte takes about 930 cycles); a key or PROCEED waits in its latch until the
   transfer ends. A command frame with no ACK is sent again, up to 13 times (the first after a boot at high speed
   needs it while FujiNet switches back); once acknowledged, a failure is an error, never a resend, since the
   device has acted on it. Timeouts: 15 frames for an ACK or the next data byte, 16 s for COMPLETE.
-- **Link down:** any non-zero return means the link is down: an SIO error (128–255) or `NET_CLOSED`.
+- **Link down:** any non-zero return means the link is down: an SIO failure (`SIOERR`, $8A, whatever went wrong:
+  no ACK, a timeout, a bad checksum, a framing error, the device's error) or `NET_CLOSED`.
   - The client closes, reopens, and sends `H` with its saved token.
   - The server answers with a full resync, so there is no other recovery code.
 - **High-speed SIO:** the instruction pages still use the OS's SIO (with its beeps), with PDVMSK ($0247) at 0,
@@ -905,12 +906,12 @@ from TNFS, as M.U.L.E.'s Intellivision client is booted); `synack.bin` and `syna
 ## Sizes (bytes)
 | Piece | Code | Notes |
 |---|---|---|
-| `synack.xex` | 12828 | whole file; loads at $2000, the 1K font at $5400, the 1K player memory at $5800 and the help screen at $5C00 (all bss) |
+| `synack.xex` | 12718 | whole file; loads at $2000, the 1K font at $5400, the 1K player memory at $5800 and the help screen at $5C00 (all bss) |
 | `display_text.c` | 3830 | + 1052 rodata (screen words, 364 of title art), 77 bss, 1K font, 1K player memory; the last move's blink |
 | `game.c` | 2800 | + 382 rodata, 312 bss (the game state) |
 | `main.c` | 1152 | + 130 rodata; with the `display_idle()` call (the last move's blink) |
 | `help.s` | 315 | + 44 rodata, 131 bss, 960 its screen: the instruction pages, read with SIO (was 779 for `help.c` + `cio.s` through DOS); 302 before skipping the parallel bus |
-| `net_sio.s` | 805 | + 14 rodata, 32 bss, 6 data: our own SIO is 431 of it. 222 before PROCEED/SOUNDR, 318 before AppKeys, 374 through the OS's SIO |
+| `net_sio.s` | 695 | + 14 rodata, 37 bss, 6 data: our own SIO is 321 of it (431 before trimming). 222 before PROCEED/SOUNDR, 318 before AppKeys, 374 through the OS's SIO |
 | `proto.c` | 180 | + 26-byte length table, 128-byte `msg[]`; hand assembly could roughly halve it |
 | `input.c` | 156 | + 64-byte key table; `ticks_per_sec()` tells PAL (50) from NTSC (60) by GTIA's PAL register |
 | `sound.s` | 167 | + 55 rodata (11 chords), 12 bss/data: chords from the immediate VBI, two of their notes alternating on channel 2 (177 for three channels from the deferred VBI) |
