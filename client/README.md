@@ -99,6 +99,11 @@ The 8-bit side. The server enforces every rule; the client draws what it is told
 | `tools/checkcfg.py` | Fails an Intellivision ROM that would land on the ECS's ROM, the cartridge's RAM or a GRAM mirror |
 | `tools/run-intv.sh`, `intvsim.py` | Runs the Intellivision ROM in jzIntv with FujiNet-PC: headless, a scenario of presses (the keypad, the buttons, the disc, the ECS keyboard), the screen as text and pictures; or in a window |
 | `tools/render_intv.py` | Draws an Intellivision dump (BACKTAB, GRAM, the mode: `intvsim.py` saves them) as a TV shows it, or as text |
+| `src/geos/screen.s` | GEOS on the Atari: the Atari's layout (`src/atari/display_text.c`, built with `__GEOS__`) drawn into GEOS's bitmap, the cells that changed, in the OS ROM's font |
+| `src/geos/frame.s` | GEOS on the Atari: our share of GEOS's frame interrupt: the tick, PROCEED's latch, the chords |
+| `src/geos/input.c` | GEOS on the Atari: keys from GEOS's keyboard queue, OPTION and SELECT from CONSOL, `ticks()`, quitting to the DeskTop |
+| `src/geos/memset.s`, `ring.s` | GEOS on the Atari: a `memset` in place of geos-cbm.lib's (see below); `rx_ring` at $0400 |
+| `tools/run-geos.sh` | Runs the GEOS client under geos-atari on atari800 (PAL 130XE) with FujiNet-PC: the GEOS disk in D2:, GEOS from `-run` or the boot disk, the autoplay build's dumps |
 
 ## Build
 ```sh
@@ -129,6 +134,8 @@ make h89-disk H89SYS=disk                # build/h89/syn-ack-wire-h89.h8d: an H1
 make h89-wiremon H89SYS=disk             # build/h89/wiremon.h8d: the protocol monitor on the H89
 make pc-h89                              # build/pc/pc-h89: the common code with the H89 display, for captures
 make intv                                # build/intv/syn-ack-wire-intv.rom: the Intellivision client (the FujiNet cartridge)
+make geos                                # build/geos/synack.cvt: SYN-ACK WIRE as a GEOS application, for geos-atari
+make geos-atr GEOS_ATARI=dir             # build/geos/syn-ack-wire-geos-boot.atr (D1:) and syn-ack-wire-geos.atr (D2:)
 ```
 Toolchain: cc65 master, `V2.19 - Git 8d86ca7` (2026-10-18). Size numbers below are from that build. Adam: z88dk
 `v25230-82c677065d` with zsdcc, in the `fozztexx/defoogi:1.4.7` container (`tools/z88dk` runs it). MS-DOS: Open
@@ -903,6 +910,55 @@ from TNFS, as M.U.L.E.'s Intellivision client is booted); `synack.bin` and `syna
   the server stopped 40 s and the seat taken back on the redial. Not yet: a real Intellivision and cartridge, the
   lobby's own boot, FujiNet Go INTV, a tie (K), PAL.
 
+## GEOS on the Atari (geos)
+An experiment: the Atari client as a GEOS application for geos-atari (GEOS 2.0 for an Atari with 128K, a 130XE),
+which runs well-behaved GEOS 64 programs, so cc65's `geos-cbm` target. The screen is the
+Atari's, not GEOS's: no menus or icons yet.
+```sh
+make -C ../../geos-atari DRIVE=siodrv_atari SIO_UNIT=2     # once: geos-atari's GEOS for an SIO disk in D2:
+make geos-atr GEOS_ATARI=../../geos-atari                  # the two disks below
+```
+- **The disks:** `syn-ack-wire-geos-boot.atr` boots geos-atari's GEOS (PicoBoot, as the Atari disk); it then
+  reads `syn-ack-wire-geos.atr` in D2:, a 180K GEOS disk (geos-atari's `tools/mkramdisk.py`) with geos-atari's file
+  selector as its DESK TOP: GEOS's file dialog lists the applications, SYN-ACK WIRE among them. Esc on the title,
+  then Y, goes back to it. GEOS's disk driver and the game's SIO take turns on the bus: GEOS reads the disk only
+  while loading.
+- **Shared with the Atari:** `display_text.c`, `net_sio.s` and `sound.s` from `src/atari/`, each with a few
+  `__GEOS__` lines; the Atari build is byte for byte as before. There is no OS: GEOS sits under the ROM.
+- **Screen:** GEOS's 320x200 bitmap (ANTIC mode F from $A038, 40 bytes a line). The layout writes Atari screen
+  codes into a 960-byte copy of a text screen, as it would into screen memory; `screen.s` draws each cell that
+  differs from what the bitmap shows, 8 bytes of the font, inverted for inverse, the 24 rows 4 lines down.
+  `in_key()` draws (the game loops call it every pass), and so does `display_message()`, before the network
+  waits. The font is the OS ROM's, copied at start-up with the ROM switched in for the moment (interrupts off).
+  One colour: the Atari's green, GEOS's own back on quitting. No players, so no panel behind the Grid and no
+  static in the title; no display list interrupts, so no colour bands (GEOS's NMI handler passes none on).
+- **Network:** `net_sio.s`, our own SIO. GEOS's interrupt takes longer than a byte at 19200, so the frame interrupt
+  is off during a transfer (GEOS's disk driver keeps it to counting frames instead), and the timeouts count VCOUNT
+  wrapping. Afterwards SKCTL and IRQEN go back to GEOS's values (3, $C0). GEOS passes on no PIA interrupt and its
+  joystick driver reads PORTA every frame, clearing PROCEED's latch, so `frame.s`, ahead of GEOS's own routine on
+  `intTopVector`, reads the latch first.
+- **Keys:** from GEOS's keyboard queue: letters arrive lowercase, Esc as GEOS's left arrow, Shift-Delete as
+  backspace; OPTION held with a key sets bit 7 (GEOS's shortcut key). **OPTION** (alone) move hints and **SELECT**
+  sound, from CONSOL once a frame as on the Atari. No instruction pages yet: no HELP, and the title doesn't
+  offer them.
+- **Sound:** the Atari's chords, stepped by `frame.s`; they hold still during a transfer (no frame interrupt).
+- **Memory:** loads at $0500, after the receive ring at $0400; ends at about $4045, the C stack at $5C00-$5FFF.
+  geos-atari banks extended memory in at $4000-$7FFF for its own code; our code is below $4000.
+- **cc65's `memset`:** geos-cbm.lib's is GEOS's `FillRam (dest, char, len)` under memset's name, but memset's fill
+  value is an `int`: FillRam takes its high byte and the pointer's low byte as the destination ($xx00) and leaves
+  a byte on the C stack. With it, `clear_row(0)` wrote 40 inverse spaces over `net_poll`. `src/geos/memset.s`
+  replaces it (and `bzero`, so the library's module never links); `memcpy` (`MoveData`) is fine.
+- **Testing:** `make GEOS=build/geos/auto URL=N:TCP://localhost:6599/ LOBBY_KEY=0 build/geos/auto/synack-auto.cvt`,
+  then `DUMPDIR=/tmp/g tools/run-geos.sh build/geos/auto/synack-auto.cvt` (or `BOOT=build/geos/syn-ack-wire-geos-boot.atr`
+  for the real boot): the test disk names the program DESK TOP, so GEOS starts straight into it. Under GEOS a BRK
+  goes to `BRKVector`; the autoplay build points that at PHP, RTI. `scrNNN.bin` is the text copy
+  (`tools/screen2txt.py`), `bmpNNN.bin` the bitmap.
+- **Tested** (2026-11-03, atari800 7.2.1 PAL 130XE, Fujisan's FujiNet-PC, geos-atari `deed5c6`): the autoplay
+  build through games against bots, from `-run` and from the boot disk; Esc and Y back to GEOS and in again, six
+  times running. Not yet on a real Atari, nor with the file selector's dialog (it needs the joystick).
+- **Not yet:** the instruction pages (a GEOS file), the title's static, colour bands (a DLI hook in geos-atari),
+  GEOS menus and icons, one disk instead of two, a place in the FujiNet lobby.
+
 ## Sizes (bytes)
 | Piece | Code | Notes |
 |---|---|---|
@@ -917,6 +973,15 @@ from TNFS, as M.U.L.E.'s Intellivision client is booted); `synack.bin` and `syna
 | `sound.s` | 167 | + 55 rodata (11 chords), 12 bss/data: chords from the immediate VBI, two of their notes alternating on channel 2 (177 for three channels from the deferred VBI) |
 | `snow.s` | 74 | + 48 rodata (masks), 3 bss: the title's static, also from the deferred VBI |
 | `dli.s` | 133 | the color bands' DLI handler and its display list switch (117 before the title's purple) |
+| **geos** (2026-11-03, cc65 `geos-cbm`) | | |
+| `synack.cvt` | 12138 | whole GEOS file (header and directory entry included); loads at $0500, 3.5K bss to $4045 |
+| `display_text.c` | 3494 | the Atari's without the players, DLIs and help lines; + 1014 rodata |
+| `screen.s` | 350 | + 2945 bss: the 960-byte text copy, what the bitmap shows (960), the 1K font |
+| `net_sio.s` | 680 | the Atari's, frame interrupt off during a transfer, no PROCEED handler |
+| `input.c` | 193 | GEOS's keyboard queue, CONSOL, quitting |
+| `sound.s` | 147 | the Atari's chords |
+| `frame.s` | 60 | the frame hook: tick, PROCEED's latch, chords |
+| `memset.s` | 61 | in place of geos-cbm.lib's |
 | **apple2_text** (2026-10-24) | | |
 | `synack` | 15370 | whole AppleSingle file; loads at $2000; `rx_ring` and the ProDOS buffer at $0C00 (bss) |
 | `display_text.c` | 3628 | + 845 rodata (screen words, the 48-byte row table, 101 of title art), 28 bss/data |

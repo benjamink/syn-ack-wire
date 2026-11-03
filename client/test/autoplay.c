@@ -23,9 +23,20 @@ static unsigned elapsed;
 #endif
 static const char name[] = AUTO_HANDLE "\r";
 /* first, the help pages: open, page to the end (extra presses are ignored), back one, leave */
+#ifdef __GEOS__
+static const unsigned char paging[] = { 0 };    /* none on GEOS yet */
+#else
 static const unsigned char paging[] = { K_HELP, '>', '>', '>', '>', '>', '>', '>', '>', '<', K_ESC, 0 };
+#endif
 
-#if defined(__CC65__) && !defined(__NES__)
+#ifdef __GEOS__
+/* GEOS sends a BRK to BRKVector (its Panic) once atari800's monitor lets it go on: point that at PHP, RTI,
+ * which goes back after the BRK with IRQs off, so CLI. The screen is drawn first (src/geos/screen.s). */
+void screen_flush(void);
+static const unsigned char brk_back[] = { 0x08, 0x40 };
+#define BRKVector (*(const void **)0x84AF)
+#define DUMP() do { screen_flush(); BRKVector = brk_back; __asm__ ("brk"); __asm__ ("nop"); __asm__ ("cli"); } while (0)
+#elif defined(__CC65__) && !defined(__NES__)
 #define DUMP() do { __asm__ ("brk"); __asm__ ("nop"); } while (0)
 #else
 void pc_dump(void);                         /* test/pc_harness.c, test/nes_dump.c */

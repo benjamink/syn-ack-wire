@@ -19,6 +19,10 @@
 ; void snd_toggle(void)
 
         .export _snd_init, _play_chord, _snd_toggle
+.ifdef __GEOS__
+        .export snd_vbi         ; src/geos/frame.s calls it once a frame
+        .import frame_init
+.endif
 
 AUDF1   = $D200
 AUDC1   = $D201
@@ -76,6 +80,10 @@ chords: .byte D3, F3, A3, $62, $FF    ; 0 a spike: D minor, low, quiet and short
         .code
 
 _snd_init:
+.ifdef __GEOS__
+        jmp frame_init          ; GEOS's frame interrupt, not the OS's VBI
+snd_vbi = vbi
+.else
         lda VVBLKI
         sta oldvbi
         lda VVBLKI+1
@@ -84,6 +92,7 @@ _snd_init:
         ldy #<vbi
         ldx #>vbi
         jmp SETVBV
+.endif
 
 ; Turning sound on plays a chord, so the player hears that it is on.
 _snd_toggle:
@@ -158,4 +167,8 @@ vbi:    lda vol
         ora #PURE
         sta AUDC1
         sta AUDC2
+.ifdef __GEOS__
+@out:   rts
+.else
 @out:   jmp (oldvbi)
+.endif

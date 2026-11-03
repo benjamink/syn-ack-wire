@@ -585,6 +585,65 @@ intvtest:
 intv-auto:
 	$(MAKE) INTV=$(INTV)/auto INTVAUTO=1 intv
 
+# --- GEOS on the Atari: a GEOS application for geos-atari (GEOS 2.0 on a 130XE), which runs well-behaved GEOS 64
+# programs, so cc65's geos-cbm target. The Atari's layout, network and chords (src/atari/ built with __GEOS__), drawn
+# into GEOS's bitmap and keyed from its keyboard queue (src/geos/). The program starts at $0500, after the receive
+# ring. The header's file and class name are the theme's title. memset is our own (src/geos/memset.s): geos-cbm.lib's
+# is GEOS's FillRam, whose arguments differ.
+GEOS    = build/geos
+GEOSFLAGS = -t geos-cbm -O -Or -Cl -DDISPLAY_IDLE=1 -DQUIT_TO_OS=1 -DQUIT_ASK='"QUIT TO GEOS? Y/N"'
+GEOSOBJ = $(addprefix $(GEOS)/,header.o main.o game.o proto.o display_text.o input.o screen.o frame.o net_sio.o \
+          sound.o ring.o memset.o)
+GEOSNAME = $(shell sed -n 's/^\#define TH_TITLE "\(.*\)"/\1/p' src/common/theme_tab.h)
+
+$(GEOS):
+	mkdir -p $@
+$(GEOS)/%.s: src/common/%.c $(HDRS) | $(GEOS)
+	$(CC) $(GEOSFLAGS) $(DEFS) -o $@ $<
+$(GEOS)/display_text.s: src/atari/display_text.c src/atari/title_art.h $(HDRS) | $(GEOS)
+	$(CC) $(GEOSFLAGS) $(DEFS) -o $@ $<
+$(GEOS)/%.s: src/geos/%.c $(HDRS) | $(GEOS)
+	$(CC) $(GEOSFLAGS) $(DEFS) -o $@ $<
+$(GEOS)/net_sio.o $(GEOS)/sound.o: $(GEOS)/%.o: src/atari/%.s | $(GEOS)
+	$(AS) -t geos-cbm -o $@ $<
+$(GEOS)/%.o: src/geos/%.s | $(GEOS)
+	$(AS) -t geos-cbm -o $@ $<
+$(GEOS)/%.o: $(GEOS)/%.s
+	$(AS) -t geos-cbm -o $@ $<
+$(GEOS)/header.grc: src/common/theme_tab.h Makefile | $(GEOS)
+	printf '%s\n' 'HEADER APPLICATION "$(GEOSNAME)" "$(GEOSNAME)" "V1.0" {' 'dostype USR' 'mode 40only' \
+	    'author "Michael Sternberg"' 'info "Online, through a FujiNet. OPTION: hints, SELECT: sound, Esc: quit."' \
+	    '}' > $@
+$(GEOS)/header.s: $(GEOS)/header.grc
+	grc65 -s $@ $<
+$(GEOS)/synack.cvt: $(GEOSOBJ)
+	$(LD) -t geos-cbm -S 0x0500 -m $(GEOS)/synack.map -Ln $(GEOS)/synack.lbl -o $@ $(GEOSOBJ) geos-cbm.lib
+	@echo "$@: $$(stat -c %s $@) bytes"
+geos: $(GEOS)/synack.cvt
+# The disks, from a geos-atari checkout (GEOS_ATARI) and its SIO build for D2: (make -C $(GEOS_ATARI)
+# DRIVE=siodrv_atari SIO_UNIT=2). syn-ack-wire-geos-boot.atr boots that GEOS (PicoBoot, as the Atari disk) in D1:;
+# syn-ack-wire-geos.atr, in D2:, is a 180K GEOS disk (geos-atari's tools/mkramdisk.py) with geos-atari's file
+# selector as its DESK TOP, which opens GEOS's file dialog on the applications: this one.
+GEOS_ATARI ?= ../../geos-atari
+GEOSXEX = $(GEOS_ATARI)/build/atari_130_sio_d2/GEOS_ATARI_130XE_SIO.XEX
+GEOSDESK = $(GEOS_ATARI)/ramdisk/cvt-128k/filesel-as-DESK TOP.cvt
+$(GEOS)/syn-ack-wire-geos.atr: $(GEOS)/synack.cvt
+	python3 $(GEOS_ATARI)/tools/mkramdisk.py --atr 717 -o $@ "$(GEOSDESK)" $< >/dev/null
+$(GEOS)/syn-ack-wire-geos-boot.atr: | $(GEOS)
+	@test -f $(GEOSXEX) || { echo "no $(GEOSXEX): make -C $(GEOS_ATARI) DRIVE=siodrv_atari SIO_UNIT=2"; exit 1; }
+	rm -rf $(GEOS)/boot && mkdir $(GEOS)/boot
+	cp $(GEOSXEX) $(GEOS)/boot/GEOS.XEX
+	dir2atr -b PicoBoot406 $@ $(GEOS)/boot >/dev/null
+geos-atr: $(GEOS)/syn-ack-wire-geos.atr $(GEOS)/syn-ack-wire-geos-boot.atr
+# plays by itself and BRKs for screen dumps (test/autoplay.c): tools/run-geos.sh
+$(GEOS)/main-auto.s: src/common/main.c $(HDRS) | $(GEOS)
+	$(CC) $(GEOSFLAGS) $(DEFS) -DAUTOPLAY -o $@ $<
+$(GEOS)/autoplay.s: test/autoplay.c $(HDRS) | $(GEOS)
+	$(CC) $(GEOSFLAGS) $(DEFS) -DAUTO_HANDLE='"GEOS"' -o $@ $<
+GEOSAUTO = $(GEOS)/autoplay.o $(GEOS)/main-auto.o $(filter-out $(GEOS)/main.o,$(GEOSOBJ))
+$(GEOS)/synack-auto.cvt: $(GEOSAUTO)
+	$(LD) -t geos-cbm -S 0x0500 -m $(GEOS)/synack-auto.map -Ln $(GEOS)/synack-auto.lbl -o $@ $(GEOSAUTO) geos-cbm.lib
+
 # --- the Apple II display (src/apple2/display_text.c) on a PC, playing by itself and saving its screen at each
 # new prompt: the manual's captures (tools/capture.sh with PLATFORM=apple2). build/pc/pc-apple2 [host] [port]
 pc-apple2: $(HDRS) src/apple2/title_art.h
@@ -634,6 +693,6 @@ pc-h89: $(HDRS) src/h89/screens.h
 clean:
 	rm -rf build
 
-.PHONY: FORCE all atr atrtest atari-nio test-atari-nio test-atari-nio-6502 test pc pc-apple2 pc-msdos pc-coco pc-nes pc-adam pc-h89 apple2_text apple2_text-po msdos msdos-img msdos-test msdos-wiremon coco coco-dsk coco-auto nes nestest nes-auto h89 h89-disk h89-wiremon adam adamtest adam-auto intv intvtest intv-auto clean
+.PHONY: FORCE all atr atrtest atari-nio test-atari-nio test-atari-nio-6502 test pc pc-apple2 pc-msdos pc-coco pc-nes pc-adam pc-h89 apple2_text apple2_text-po msdos msdos-img msdos-test msdos-wiremon coco coco-dsk coco-auto nes nestest nes-auto h89 h89-disk h89-wiremon adam adamtest adam-auto intv intvtest intv-auto geos geos-atr clean
 .PRECIOUS: $(B)/%.s $(B)/%.o $(A2)/%.s $(A2)/%.o $(COCO)/%.o $(NES)/%.s $(NES)/%.o $(ADAM)/%.o
 .DELETE_ON_ERROR:

@@ -19,13 +19,29 @@
 ; an ACK is sent again (the first after a boot at high speed needs it, while
 ; FujiNet switches back); once acknowledged, a failed transfer is an error,
 ; never a resend, as the network device has already acted on it.
+;
+; Under GEOS (__GEOS__: src/geos/) there is no OS: GEOS's own idle values (SKCTL 3,
+; IRQEN $C0) go back after a transfer, and the frame interrupt is off during one,
+; as GEOS's disk driver keeps it to counting frames, so its timeouts count VCOUNT
+; wrapping instead. GEOS passes on no PIA interrupt, so src/geos/frame.s reads
+; PROCEED's latch once a frame, before its joystick read clears it, and sets
+; `net_ready`; the 4-second safety call counts its `geos_tick`.
 
         .export _net_open, _net_poll, _net_send, _net_close, _net_appkey
         .export _rx_head, _rx_tail, _tx
         .import _rx_ring
+.ifdef __GEOS__
+        .export net_ready
+        .import geos_tick
+RTCLOK  = geos_tick
+NMIEN   = $D40E
+VCOUNT  = $D40B
+.endif
         .importzp ptr1
 
+.ifndef __GEOS__
 RTCLOK  = $14           ; jiffy counter, low byte
+.endif
 POKMSK  = $10           ; IRQEN shadow
 SSKCTL  = $0232         ; SKCTL shadow
 AUDF3   = $D204
@@ -71,6 +87,9 @@ _tx:    .res 16
 stat:   .res 4          ; bytes waiting lo/hi, connected, error
 n:      .res 1
 ready:  .res 1          ; non-zero: FujiNet has something, or bytes were left behind
+.ifdef __GEOS__
+net_ready = ready
+.endif
 last:   .res 1          ; RTCLOK at the last status call
 frame:  .res 4          ; the command frame: device, command, AUX1, AUX2
 len:    .res 1          ; data bytes, 0 for 256 (the buffer is at ptr1)
@@ -123,6 +142,9 @@ _net_appkey:
 _net_open:
         sta ptr1
         stx ptr1+1
+.ifdef __GEOS__
+        lda PORTA               ; drop any stale PROCEED edge
+.else
         ldy #<proceed
         sty VPRCED
         ldy #>proceed
@@ -131,6 +153,7 @@ _net_open:
         lda PACTL
         ora #1
         sta PACTL               ; CA1 interrupt on
+.endif
         ldy #0
         sty _rx_head            ; anything left from an old connection is junk
         sty _rx_tail
@@ -143,6 +166,7 @@ _net_open:
         ldx #OPEN
         jmp sio
 
+.ifndef __GEOS__
 ; PROCEED handler. The OS IRQ code pushed A before jumping here.
 proceed:
         lda PORTA               ; clear the PIA's interrupt flag
@@ -150,6 +174,7 @@ proceed:
         sta ready
         pla
         rti
+.endif
 
 ; unsigned char net_poll(void)
 ; Cheap unless PROCEED fired (or 4 seconds have passed): then one status call and,
@@ -270,6 +295,10 @@ sio:    lda #NDEV
         sta mode
         php
         sei
+.ifdef __GEOS__
+        lda #0
+        sta NMIEN               ; no frame interrupt: GEOS's takes longer than a byte
+.endif
         lda #$28                ; channel 3 at 1.79 MHz, joined to 4: 19200 baud
         sta AUDCTL              ; (channels 3 and 4 stay at volume 0: the OS's
         sta AUDF3               ; SIO leaves them so, and nothing else plays them)
@@ -324,10 +353,19 @@ sio:    lda #NDEV
         bcc :+
         lda #SIOERR
 :       tay
+.ifdef __GEOS__
+        lda #3                  ; the serial port and IRQs as GEOS keeps them
+        sta SKCTL
+        lda #KEYS
+        sta IRQEN
+        lda #$40
+        sta NMIEN               ; the frame interrupt again
+.else
         lda SSKCTL              ; the serial port, IRQs and COMMAND as the OS left them
         sta SKCTL
         lda POKMSK
         sta IRQEN
+.endif
         lda #$3C
         sta PBCTL
         plp
@@ -380,15 +418,26 @@ yes:    lda #0
 ; ACKWAIT frames (getbt: in A frames). Keeps Y.
 getb:   lda #ACKWAIT
 getbt:  sta ticks
+.ifdef __GEOS__
+        lda VCOUNT
+.else
         lda RTCLOK
+.endif
         sta tlast
 @wait:  lda IRQEN
         and #SERIN
         beq @got
+.ifdef __GEOS__
+        lda VCOUNT              ; a frame has passed when it starts again from 0
+        cmp tlast
+        sta tlast
+        bcs @wait
+.else
         lda RTCLOK
         cmp tlast
         beq @wait
         sta tlast
+.endif
         dec ticks
         bne @wait
         sec
