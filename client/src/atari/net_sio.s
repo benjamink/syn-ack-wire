@@ -8,10 +8,14 @@
 ; that clears it. So the CA1 interrupt is enabled and a 6-byte handler sets
 ; `ready`. net_poll only spends an SIO status call when `ready` is set, or once
 ; a second as a safety net for a missed pulse or a quiet disconnect.
+;
+; Every call skips the parallel bus (PDVMSK 0 for the call), so a U1MB or
+; Incognito with high-speed SIO on can't change the speed: the OS's own SIO
+; talks to the FujiNet at 19200.
 
         .export _net_open, _net_poll, _net_send, _net_close, _net_appkey
         .export _rx_head, _rx_tail, _tx
-        .export net_hush, net_after
+        .export net_hush
         .import _rx_ring
 
 DDEVIC  = $0300
@@ -26,6 +30,7 @@ DBYTHI  = $0309
 DAUX1   = $030A
 DAUX2   = $030B
 SIOV    = $E459
+PDVMSK  = $0247         ; the parallel devices SIO may call (XL/XE)
 SOUNDR  = $41           ; 0 = no beeps during SIO
 RTCLOK  = $14           ; jiffy counter, low byte
 VPRCED  = $0202         ; PROCEED interrupt vector
@@ -57,11 +62,9 @@ n:      .res 1
 ready:  .res 1          ; non-zero: FujiNet has something, or bytes were left behind
 last:   .res 1          ; RTCLOK at the last status call
 net_hush: .res 1        ; non-zero while a sound plays (sound.s keeps its volume here):
-                        ; skip the safety status call, and call net_after after each
-                        ; transfer, because SIO turns the sound off
+                        ; skip the safety status call, because SIO turns the sound off
 
         .data
-net_after: .addr done   ; sound.s points it at snd_put
 akey:   .word 1         ; AppKey open block: creator (FujiNet), app (the lobby),
         .byte 1, 0, 0, 0 ;   key, mode (read), reserved
 
@@ -257,14 +260,16 @@ sio:    lda #NDEV
         sta DSTATS
         lda #TIMEOUT
         sta DTIMLO
+        lda PDVMSK
+        pha
+        lda #0
+        sta PDVMSK
         jsr SIOV
-        lda net_hush            ; SIO turned the sound off: put it back
-        beq :+
-        jsr after
-:       ldx #0
+        pla
+        sta PDVMSK
+        ldx #0
         lda DSTATS              ; SIO status, 1 = OK
         cmp #1
         bne :+
         txa
 :       rts
-after:  jmp (net_after)
