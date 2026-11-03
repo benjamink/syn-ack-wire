@@ -10,6 +10,11 @@
 ; with the game underneath while the pages are up (they are a mode of the
 ; caller's loop, which goes on reading the network).
 ;
+; The reads skip the parallel bus (PDVMSK 0 for the call), so a U1MB or Incognito
+; with high-speed SIO on can't speed up D1 under the game: the OS's own SIO reads
+; it at 19200, the speed the FujiNet's network calls use, and the FujiNet never has
+; to switch speeds between a page and the next network call.
+;
 ; void help_open(void)                                  the page last read (it's
 ;                                                       still in the screen), else
 ;                                                       page 1, or why not
@@ -30,6 +35,7 @@ DSTATS  = $0303
 DAUX1   = $030A
 DAUX2   = $030B
 SIOV    = $E459
+PDVMSK  = $0247         ; the parallel devices SIO may call (XL/XE)
 SAVMSC  = $58           ; the game screen
 SDLSTL  = $0230         ; the OS display list: its LMS address at 4
 COLOR2  = $02C6
@@ -209,7 +215,13 @@ read:   pha
         pla
         sta DBUFLO
         stx DBUFHI
+        lda PDVMSK
+        pha
+        lda #0
+        sta PDVMSK
         jsr SIOV
+        pla
+        sta PDVMSK
         inc DAUX1
         bne :+
         inc DAUX2

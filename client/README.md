@@ -19,7 +19,7 @@ The 8-bit side. The server enforces every rule; the client draws what it is told
 | `src/atari/title4.atascii` | The title art (ATASCII, $9B line ends) |
 | `src/atari/title_art.h`, `.inc` | The art in screen codes and the static's masks, **generated** by `tools/title_art.py` |
 | `src/atari/input.c` | Keyboard (the OS's last-key byte, no K: handler) and the frame counter |
-| `src/atari/net_sio.s` | Network calls for the Atari: FujiNet `N1:` ($71) over raw SIO |
+| `src/atari/net_sio.s` | Network calls for the Atari: FujiNet `N1:` ($71) over our own SIO, not the OS's |
 | `src/atari/net_nio.c`, `net_nio_sound.s` | Alternative Atari network calls for FujiNet-NIO, selected by `make atari-nio` |
 | `src/atari/ring.s` | `rx_ring` = page 6 ($0600): page-aligned, so the 8-bit indexes wrap for free |
 | `src/atari/game.cfg` | cc65's `atari.cfg` plus 1K-aligned `FONT` and `PM` segments |
@@ -181,7 +181,7 @@ setting alone. The game leaves display interrupts enabled during SIO in both cas
 or a failed cache reset may leave HSIO enabled and can cause communication failures at high speed.
 
 Measured with cc65 V2.19 Git 37d4bb24 and the pinned release, both using the public server: the default XEX is
-12,394 bytes and the NIO XEX is 19,767 bytes, an increase of 7,373 bytes. The configured URL changes the size.
+12,718 bytes and the NIO XEX is 19,770 bytes, an increase of 7,052 bytes. The configured URL changes the size.
 The FileDevice request and normalized URL reuse the receive ring while it is idle.
 
 ## Play it in the emulator
@@ -368,20 +368,32 @@ log with no screen: `HEADLESS=1 tools/run-test.sh build/atari/wiremon-auto.xex`.
     6-byte handler that sets a `ready` flag.
   - The latched flag can't be polled directly, because the OS vertical blank reads PORTA for the joysticks every
     frame, which clears it.
-- **`net_poll()`:** costs a few instructions unless `ready` is set or a second has passed (the safety net). Then it
+- **`net_poll()`:** costs a few instructions unless `ready` is set or 4 seconds have passed (the safety net). Then it
   makes one status call and at most one read of what fits:
   - It never overruns bytes the assembler hasn't taken yet.
   - It stops at the end of the ring's page. If bytes are left behind, `ready` stays set and the next poll gets them.
   - Call it from the main loop, never from an interrupt.
-- **SIO beeps:** `net_open` sets SOUNDR ($41) to 0. Otherwise every poll would beep on real hardware.
-- **Link down:** any non-zero return means the link is down: an SIO error (128–255) or `NET_CLOSED`.
+- **Our own SIO**, not the OS's (from the GEOS port's disk driver): POKEY and the PIA directly, polled with IRQs
+  masked, always 19200. It makes no SIO beeps, leaves channels 1
+  and 2 alone, and nothing that hooks SIOV (a U1MB's or Incognito's high-speed SIO) changes its speed. The OS's
+  VBI and the DLIs still run (a byte takes about 930 cycles); a key or PROCEED waits in its latch until the
+  transfer ends. A command frame with no ACK is sent again, up to 13 times (the first after a boot at high speed
+  needs it while FujiNet switches back); once acknowledged, a failure is an error, never a resend, since the
+  device has acted on it. Timeouts: 15 frames for an ACK or the next data byte, 16 s for COMPLETE.
+- **Link down:** any non-zero return means the link is down: an SIO failure (`SIOERR`, $8A, whatever went wrong:
+  no ACK, a timeout, a bad checksum, a framing error, the device's error) or `NET_CLOSED`.
   - The client closes, reopens, and sends `H` with its saved token.
   - The server answers with a full resync, so there is no other recovery code.
-- **Sound:** SIO uses POKEY channels 3 and 4 as its serial clock. `sound.s` writes channels 1-3 from the
-  deferred VBI, which the OS skips while SIO runs, so a transfer is never disturbed. Never channel 4: a note left
-  there made later SIO reads fail. Each transfer turns the sound off, so `net_sio.s` puts the chord back as soon
-  as SIO returns, and skips its once-a-second status check while a chord sounds (a read that FujiNet signals
-  with PROCEED still happens at once).
+- **High-speed SIO:** the instruction pages still use the OS's SIO (with its beeps), with PDVMSK ($0247) at 0,
+  so the OS skips the parallel bus and reads D1 itself at 19200. A U1MB or Incognito with high-speed SIO on would
+  otherwise read it fast, and the FujiNet, answering the next network call at the disk's speed, needed retries to
+  switch back. A high-speed OS ROM patched into SIOV itself still speeds up the pages.
+- **Sound:** SIO uses POKEY channels 3 and 4 as its serial clock, and `sound.s` never writes them or AUDCTL:
+  chords are written every frame, on channels 1 and 2, from the immediate VBI, which the OS runs even during
+  SIO, so the envelope keeps time. Channel 1 holds a chord's first (lowest) note; channel 2 alternates the other
+  two every frame, an arpeggio heard as one chord. Never channel 4: a note left there made later SIO reads fail.
+  `net_sio.s`'s SIO leaves channels 1 and 2 alone, so a chord sounds straight through a transfer; the OS's SIO
+  (the instruction pages) turns them off, and the next frame puts the chord back.
   Chords (B Locrian): a short quiet one for every spike, a new hive, a hivejack, Black ICE, two rising ones when
   it's your turn and two more when it's time to buy, and a series for the null-route. Each fades out; a chord
   still sounding is only cut off by a more important one.
@@ -906,15 +918,15 @@ from TNFS, as M.U.L.E.'s Intellivision client is booted); `synack.bin` and `syna
 ## Sizes (bytes)
 | Piece | Code | Notes |
 |---|---|---|
-| `synack.xex` | 12394 | whole file; loads at $2000, the 1K font at $5400, the 1K player memory at $5800 and the help screen at $5C00 (all bss) |
+| `synack.xex` | 12718 | whole file; loads at $2000, the 1K font at $5400, the 1K player memory at $5800 and the help screen at $5C00 (all bss) |
 | `display_text.c` | 3830 | + 1052 rodata (screen words, 364 of title art), 77 bss, 1K font, 1K player memory; the last move's blink |
 | `game.c` | 2800 | + 382 rodata, 312 bss (the game state) |
 | `main.c` | 1152 | + 130 rodata; with the `display_idle()` call (the last move's blink) |
-| `help.s` | 302 | + 44 rodata, 131 bss, 960 its screen: the instruction pages, read with SIO (was 779 for `help.c` + `cio.s` through DOS) |
-| `net_sio.s` | 372 | + 14 rodata, 26 bss, 8 data. 222 before PROCEED/SOUNDR, 318 before AppKeys |
+| `help.s` | 315 | + 44 rodata, 131 bss, 960 its screen: the instruction pages, read with SIO (was 779 for `help.c` + `cio.s` through DOS); 302 before skipping the parallel bus |
+| `net_sio.s` | 695 | + 14 rodata, 37 bss, 6 data: our own SIO is 321 of it (431 before trimming). 222 before PROCEED/SOUNDR, 318 before AppKeys, 374 through the OS's SIO |
 | `proto.c` | 180 | + 26-byte length table, 128-byte `msg[]`; hand assembly could roughly halve it |
 | `input.c` | 156 | + 64-byte key table; `ticks_per_sec()` tells PAL (50) from NTSC (60) by GTIA's PAL register |
-| `sound.s` | 177 | + 55 rodata (11 chords), 10 bss/data: chords from the deferred VBI |
+| `sound.s` | 167 | + 55 rodata (11 chords), 12 bss/data: chords from the immediate VBI, two of their notes alternating on channel 2 (177 for three channels from the deferred VBI) |
 | `snow.s` | 74 | + 48 rodata (masks), 3 bss: the title's static, also from the deferred VBI |
 | `dli.s` | 133 | the color bands' DLI handler and its display list switch (117 before the title's purple) |
 | **apple2_text** (2026-10-24) | | |
