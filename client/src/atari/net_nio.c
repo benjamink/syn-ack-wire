@@ -10,8 +10,6 @@
 #endif
 
 unsigned char rx_head, rx_tail, tx[16];
-extern unsigned char net_hush;
-void nio_after(void);
 
 static fn_handle_t session;
 static unsigned long read_offset, write_offset;
@@ -30,8 +28,6 @@ extern unsigned char nio_test_clock;
 #define CLOCK (*(volatile unsigned char *)0x14)
 #endif
 
-void net_nio_after(void) { if (net_hush) nio_after(); }
-
 /* A compatible U1MB can cache a different speed for each SIO device. */
 unsigned char net_nio_standard_sio(void)
 {
@@ -40,12 +36,10 @@ unsigned char net_nio_standard_sio(void)
     if (!fn_atari_u1mb_pbi()) return FN_ERR_UNSUPPORTED;
     if (!saved_hsio_valid) {
         error = fn_fuji_get_hsio(&saved_hsio);
-        net_nio_after();
         if (error) return error;
         saved_hsio_valid = 1;
     }
     error = fn_fuji_set_hsio(FN_FUJI_HSIO_OFF);
-    net_nio_after();
     if (error) return error;
     error = fn_atari_u1mb_clear_devices(15);
     if (error) return error;
@@ -61,7 +55,6 @@ unsigned char net_nio_restore_sio(void)
     unsigned char error;
     if (!saved_hsio_valid) return FN_OK;
     error = fn_fuji_set_hsio(saved_hsio);
-    net_nio_after();
     if (error) return error;
     standard_sio = 0;
     error = fn_atari_u1mb_clear_devices(15);
@@ -76,7 +69,7 @@ unsigned char net_nio_init(void)
 {
     unsigned char error;
     if (initialized) return 0;
-    error = fn_init(); net_nio_after();
+    error = fn_init();
     if (error) return error;
     (void)net_nio_standard_sio();
     initialized = 1;
@@ -107,7 +100,6 @@ unsigned char __fastcall__ net_appkey(unsigned char key)
         n = scratch[8];
         memcpy(rx_ring + 2, scratch + 10, n);
     }
-    net_nio_after();
     rx_ring[2 + n] = 0;
     return n;
 }
@@ -139,7 +131,6 @@ unsigned char __fastcall__ net_open(const char *url)
     eof = 0;
     connected = queued = 0;
     error = fn_open(&session, 0, nio_url, FN_OPEN_KEEP);
-    net_nio_after();
     if (error) return error;
     opened = 1;
     fn_atari_proc_enable();
@@ -155,7 +146,6 @@ unsigned char net_poll(void)
     now = CLOCK;
     if (!connected && queued) {
         error = fn_write(session, write_offset, outgoing, queued, &written);
-        net_nio_after();
         if (error == FN_ERR_NOT_READY || error == FN_ERR_BUSY) return 0;
         if (error) return error;
         write_offset += written;
@@ -164,7 +154,7 @@ unsigned char net_poll(void)
         queued = 0;
     }
     if (fn_atari_proc_pending()) pending = 1;
-    if (!pending && (net_hush || (unsigned char)(now - last) < 60)) return 0;
+    if (!pending && (unsigned char)(now - last) < 60) return 0;
     free = rx_head - rx_tail - 1;
     if (!free) { pending = 1; return 0; }
     n = -rx_tail;
@@ -172,7 +162,6 @@ unsigned char net_poll(void)
     pending = 0;
     last = now;
     error = fn_read(session, read_offset, rx_ring + rx_tail, free, &received, &flags);
-    net_nio_after();
     if (error == FN_ERR_NOT_READY || error == FN_ERR_BUSY) return 0;
     if (error) return error;
     read_offset += received;
@@ -197,7 +186,6 @@ unsigned char __fastcall__ net_send(unsigned char len)
         return 0;
     }
     error = fn_write(session, write_offset, tx, len, &written);
-    net_nio_after();
     write_offset += written;
     return error ? error : (written == len ? 0 : NET_CLOSED);
 }
@@ -205,5 +193,5 @@ unsigned char __fastcall__ net_send(unsigned char len)
 void net_close(void)
 {
     fn_atari_proc_disable();
-    if (opened) { fn_close(session); net_nio_after(); opened = 0; }
+    if (opened) { fn_close(session); opened = 0; }
 }

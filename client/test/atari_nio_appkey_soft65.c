@@ -12,10 +12,9 @@ enum {
     KEY_ZERO, KEY_FF, EMPTY_VALUE
 };
 uint8_t rx_ring[256], test_case, test_seen, test_result;
-static uint8_t calls, afters, raw_bad;
+static uint8_t calls, raw_bad;
 
 uint8_t net_nio_init(void) { return test_case == INIT_ERROR ? FN_ERR_IO : 0; }
-void net_nio_after(void) { ++afters; }
 
 uint8_t fn_raw_call(uint8_t dev, uint8_t cmd, const void *payload, uint16_t length,
                     void *result, uint16_t capacity, fn_raw_response_t *response)
@@ -63,10 +62,10 @@ void test_func(void)
                        (test_case == VALUE || test_case == KEY_ZERO || test_case == KEY_FF ? 3 : 0);
     test_seen = test_case; test_result = 0xff;
     memset(rx_ring, 0xa5, sizeof(rx_ring));
-    calls = afters = raw_bad = 0;
+    calls = raw_bad = 0;
     n = net_appkey(key);
     if (n != expected || raw_bad || calls != (test_case == INIT_ERROR ? 0 : 1) ||
-        afters != (test_case == INIT_ERROR ? 0 : 1) || rx_ring[2 + n] != 0) { test_result = 1; return; }
+        rx_ring[2 + n] != 0) { test_result = 1; return; }
     for (i = 0; i < n; ++i) if (rx_ring[2+i] != 'A' + (i & 15)) { test_result = 2; return; }
     /* Scratch starts at 80; every other byte in the output area is a guard. */
     if (rx_ring[0] != 0xa5 || rx_ring[1] != 0xa5) { test_result = 3; return; }

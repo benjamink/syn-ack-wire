@@ -1,7 +1,7 @@
 ; Read the lobby's AppKey file through NIO FileDevice, using the idle ring as
 ; scratch. The call ABI is unchanged; no legacy compatibility code is linked.
         .export _net_appkey
-        .import _net_nio_init, _net_nio_after, _fn_raw_call, _rx_ring
+        .import _net_nio_init, _fn_raw_call, _rx_ring
         .import pusha, pushax
 SCRATCH = _rx_ring + 80
         .bss
@@ -102,7 +102,6 @@ copy_loop:
         dex
         bpl copy_loop
 finish:
-        jsr _net_nio_after
 empty:
         ldx count
         lda #0
