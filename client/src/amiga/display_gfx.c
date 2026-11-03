@@ -444,17 +444,17 @@ static void table_row(short x, short y, unsigned char s, unsigned char w)
 
 static unsigned char table_rows;        /* the seats the PAL table last showed: the box is wiped only when they change */
 
-static void paint_table_pal(unsigned char full)
+static void paint_table_pal(const struct rect *area, unsigned char full)
 {
     unsigned char s, j, row = 0, n = 0;
-    short x = LY.seats_area.x + 4, y = LY.seats_area.y + 3;
+    short x = area->x + 4, y = area->y + (LY.ntsc ? 2 : 3);
     struct rect r;
     char ch;
 
     for (s = 0; s < SEATS; ++s)
         n += seat_kind[s] != SEAT_EMPTY;
     if (full || n != table_rows) {
-        gfx_bevel(&LY.seats_area, PEN_BG1, PEN_EDGE, PEN_BG0);
+        gfx_bevel(area, PEN_BG1, PEN_EDGE, PEN_BG0);
         table_rows = n;
     }
     gfx_text(x + 2, y, T_PLAYERTITLE_P, sizeof T_PLAYERTITLE_P - 1, PEN_CYAN, PEN_BG1);
@@ -467,7 +467,7 @@ static void paint_table_pal(unsigned char full)
     }
     for (s = 0; s < SEATS; ++s)
         if (seat_kind[s] != SEAT_EMPTY)
-            table_row(x, y + 8 + row++ * 8, s, LY.seats_area.w - 8);
+            table_row(x, y + 8 + row++ * 8, s, area->w - 8);
 }
 
 static void paint_table_ntsc(void);
@@ -478,7 +478,7 @@ static void paint_seats_pal(void)
 {
     unsigned char i;
     if (table_view)
-        paint_table_pal(1);
+        paint_table_pal(&LY.seats_area, 1);
     else
         for (i = 0; i < SEATS; ++i)
             card(&LY.seat[i], i);
@@ -583,6 +583,13 @@ static void paint_table_ntsc(void)
     }
 }
 
+/* While the buy window is up: every netrunner's account and crypto in the table, whatever view the seats are in (PAL: where the
+ * seats are; NTSC: taller, where the grid's lower rows were). Closing the window puts the saved picture back. */
+void display_buy_table(void)
+{
+    paint_table_pal(&LY.tbl_buy, 1);
+}
+
 void amiga_table_set(unsigned char on)
 {
 #ifndef TABLEVIEW
@@ -661,7 +668,7 @@ static void seats_now(void)
         return;
     }
     if (table_view) {
-        paint_table_pal(1);             /* the whole box each time: a shorter amount must not leave the longer one's yen behind */
+        paint_table_pal(&LY.seats_area, 1);             /* the whole box each time: a shorter amount must not leave the longer one's yen behind */
         return;
     }
     for (i = 0; i < SEATS; ++i)

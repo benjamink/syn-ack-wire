@@ -340,44 +340,69 @@ def playfield():
     return cv
 
 
-def buy():
-    cv = playfield()
-    # dim everything behind the window: a checkerboard of the darkest colour (no new colours needed)
-    for y in range(11, H):
+def buy_window(cv, ntsc):
+    """The buy window: the full width and short, the table of netrunners under it undimmed, the log untouched.
+    Rows down the left; the tally and the three buttons stack at the right (layout.c's numbers)."""
+    wx, wy, ww = 4, 12, 312
+    wh, step, y0, hy = (90, 9, 22, 13) if ntsc else (120, 13, 24, 14)
+    ty, tdy = (14, 9) if ntsc else (16, 11)
+    tbl = (0, 106, 320, 59) if ntsc else (0, 160, 320, 62)
+    for y in range(11, tbl[1]):                  # dim what is above the table
         for x in range(W):
             if (x + y) % 2 == 0:
                 cv.px[x, y] = rgb(P["bg0"])
-    wx, wy, ww, wh = 46, 22, 228, 190
     cv.rect(wx + 3, wy + 3, ww, wh, "bg0")
     cv.bevel(wx, wy, ww, wh, "bg2", "edgehi", "bg0")
     cv.rect(wx + 1, wy + 1, ww - 2, 11, "cyan"); cv.text(wx + 6, wy + 2, "BUY CRYPTO", "bg0")
-    cv.frame(wx + ww - 22, wy + 2, 9, 8, "bg0"); cv.frame(wx + ww - 12, wy + 2, 9, 8, "bg0")
-    cv.text(wx + 8, wy + 15, "UP TO 3 A TURN: CLICK", "text")
-    cv.text(wx + 18, wy + 26, "SYNDICATE", "dim"); cv.text(wx + 100, wy + 26, "PRICE", "dim"); cv.text(wx + 148, wy + 26, "LEFT", "dim"); cv.text(wx + 186, wy + 26, "BUY", "dim")
+    for x, t in [(18, "HIVE"), (70, "HELD"), (108, "PRICE"), (152, "LEFT")]:
+        cv.text(wx + x, wy + hy, t, "dim")
     price = [0, 4, 0, 6, 8, 3, 11]
     left = [24, 24, 23, 25, 24, 22, 25]
+    held = {"G": 3, "B": 1, "L": 2}
     pick = {"L": 2, "B": 1}
-    y = wy + 37
     for i, (k, nm) in enumerate(SYN):
         on = price[i] > 0
-        rowc = "bg1" if i % 2 == 0 else "bg2"
-        cv.rect(wx + 4, y - 2, ww - 8, 14, rowc)
-        cv.rect(wx + 8, y, 6, 9, k if on else k + "d")
-        cv.text(wx + 18, y, nm, "white" if on else "dim")
-        cv.text(wx + 100, y, (YEN + str(price[i] * 100)).rjust(5) if on else "  ---", "amber" if on else "dim")
-        cv.text(wx + 148, y, str(left[i]).rjust(2), "text" if on else "dim")
+        y = wy + y0 + i * step
+        rh = step if ntsc else step - 1
+        cv.rect(wx + 4, y, 212, rh, "bg1" if i % 2 == 0 else "bg2")
+        ty0 = y + (1 if ntsc else 2)
+        cv.rect(wx + 8, ty0, 8, 8 if ntsc else 9, k if on else k + "d"); cv.text(wx + 8, ty0, k, "bg0")
+        cv.text(wx + 20, ty0, nm, "white" if on else "dim")
+        cv.text(wx + 86, ty0, str(held[k]).rjust(2) if k in held else " .", k if k in held else "dim")
+        cv.text(wx + 108, ty0, (YEN + str(price[i] * 100)).rjust(5) if on else "  ---", "amber" if on else "dim")
+        cv.text(wx + 152, ty0, str(left[i]).rjust(2) if on else "", "text")
         for n in range(pick.get(k, 0)):
-            cv.bevel(wx + 176 + n * 14, y - 2, 12, 13, k, "white", "bg0"); cv.text(wx + 179 + n * 14, y + 1, k, "bg0")
-        y += 15
-    cv.rect(wx + 4, y, ww - 8, 1, "edge")
-    cv.text(wx + 8, y + 5, "TOTAL " + YEN + "1100", "white"); cv.text(wx + 110, y + 5, "CASH " + YEN + "3100", "text")
-    cv.text(wx + 8, y + 15, "LEFT  " + YEN + "2000", "green")
-    by = wy + wh - 22
-    for bx, label, fill, tc in [(wx + 8, "BUY", "green", "bg0"), (wx + 62, "UNDO", "bg2", "white"), (wx + 118, "CALL NULL-ROUTE", "bg1", "dim")]:
-        w = 8 * len(label) + 12
-        cv.bevel(bx, by, w, 16, fill, "white" if fill == "green" else "edgehi", "bg0")
-        cv.text(bx + 6, by + 4, label, tc)
-    pointer(cv, wx + 20, by + 6)
+            cv.bevel(wx + 172 + n * 14, y, 12, rh - 1, k, "white", "bg0"); cv.text(wx + 174 + n * 14, y + (rh - 8) // 2, k, "bg0")
+    cx = wx + 220
+    for j, (lab, val, c) in enumerate([("TOTAL", YEN + "1100", "white"), ("CASH", YEN + "3100", "text"), ("LEFT", YEN + "2000", "green")]):
+        cv.text(cx, wy + ty + j * tdy, lab, c)
+        cv.text(cx + 88 - 8 * len(val), wy + ty + j * tdy, val, c)
+    by, bh, bg = wy + (44 if ntsc else 56), (13 if ntsc else 16), (14 if ntsc else 18)
+    for j, (label, fill, tc) in enumerate([("BUY", "green", "bg0"), ("UNDO", "bg2", "white"), ("NULL-ROUTE", "bg1", "dim")]):
+        cv.bevel(cx, by + j * bg, 88, bh, fill, "white" if fill == "green" else "edgehi", "bg0")
+        cv.text(cx + (88 - 8 * len(label)) // 2, by + j * bg + (4 if not ntsc else 3), label, tc)
+    # the table of every netrunner, bright, tall enough for all six
+    cv.bevel(tbl[0], tbl[1], tbl[2], tbl[3], "bg1", "edge", "bg0")
+    ty1 = tbl[1] + (2 if ntsc else 3)
+    cv.text(6, ty1, "NETRUNNERS", "cyan"); cv.text(4 + 136 - 32, ty1, "ACCT", "dim")
+    for j, (k, nm) in enumerate(SYN):
+        cv.rect(4 + 140 + j * 23, ty1, 16, 8, k); cv.text(4 + 144 + j * 23, ty1, k, "bg0")
+    rows = [("NULLPTR", 3100, "..2...1"), ("BRATVA", 4100, ".5.1..2"), ("VEGA", 5100, "1...4.."),
+            ("NOVA", 3900, "..22..3"), ("CHROME", 7000, "21....."), ("ZED", 2600, "...31..")]
+    for r, (nm, cash, h) in enumerate(rows):
+        yy = ty1 + 8 + r * 8
+        if r == 0:
+            cv.rect(5, yy, 310, 8, "bg2")
+        cv.text(6, yy, (">" if r == 0 else " ") + nm.ljust(8), "amber" if r == 0 else "text")
+        cv.text(4 + 136 - 8 * len(YEN + str(cash)), yy, YEN + str(cash), "amber")
+        for j, (k, _) in enumerate(SYN):
+            cv.text(4 + 136 + j * 23 + 12, yy, h[j] if h[j] != "." else ".", k if h[j] != "." else "dim")
+    pointer(cv, cx + 60, by + 8)
+
+
+def buy():
+    cv = playfield()
+    buy_window(cv, False)
     return cv
 
 
@@ -482,39 +507,7 @@ def buy_ntsc():
     H, GY, CH = 200, 21, 12
     try:
         cv = playfield_ntsc()
-        for y in range(11, H):
-            for x in range(W):
-                if (x + y) % 2 == 0:
-                    cv.px[x, y] = rgb(P["bg0"])
-        wx, wy, ww, wh = 46, 14, 228, 176
-        cv.rect(wx + 3, wy + 3, ww, wh, "bg0")
-        cv.bevel(wx, wy, ww, wh, "bg2", "edgehi", "bg0")
-        cv.rect(wx + 1, wy + 1, ww - 2, 11, "cyan"); cv.text(wx + 6, wy + 2, "BUY CRYPTO", "bg0")
-        cv.text(wx + 8, wy + 14, "UP TO 3 A TURN: CLICK", "text")
-        cv.text(wx + 18, wy + 24, "SYNDICATE", "dim"); cv.text(wx + 100, wy + 24, "PRICE", "dim"); cv.text(wx + 148, wy + 24, "LEFT", "dim"); cv.text(wx + 186, wy + 24, "BUY", "dim")
-        price = [0, 4, 0, 6, 8, 3, 11]
-        left = [24, 24, 23, 25, 24, 22, 25]
-        pick = {"L": 2, "B": 1}
-        y = wy + 34
-        for i, (k, nm) in enumerate(SYN):
-            on = price[i] > 0
-            cv.rect(wx + 4, y - 1, ww - 8, 11, "bg1" if i % 2 == 0 else "bg2")
-            cv.rect(wx + 8, y, 6, 8, k if on else k + "d")
-            cv.text(wx + 18, y, nm, "white" if on else "dim")
-            cv.text(wx + 100, y, (YEN + str(price[i] * 100)).rjust(5) if on else "  ---", "amber" if on else "dim")
-            cv.text(wx + 148, y, str(left[i]).rjust(2), "text" if on else "dim")
-            for n in range(pick.get(k, 0)):
-                cv.bevel(wx + 176 + n * 14, y - 1, 12, 11, k, "white", "bg0"); cv.text(wx + 179 + n * 14, y, k, "bg0")
-            y += 12
-        cv.rect(wx + 4, y, ww - 8, 1, "edge")
-        cv.text(wx + 8, y + 4, "TOTAL " + YEN + "1100", "white"); cv.text(wx + 110, y + 4, "CASH " + YEN + "3100", "text")
-        cv.text(wx + 8, y + 13, "LEFT  " + YEN + "2000", "green")
-        by = wy + wh - 20
-        for bx, label, fill, tc in [(wx + 8, "BUY", "green", "bg0"), (wx + 62, "UNDO", "bg2", "white"), (wx + 118, "CALL NULL-ROUTE", "bg1", "dim")]:
-            w = 8 * len(label) + 12
-            cv.bevel(bx, by, w, 16, fill, "white" if fill == "green" else "edgehi", "bg0")
-            cv.text(bx + 6, by + 4, label, tc)
-        pointer(cv, wx + 20, by + 6)
+        buy_window(cv, True)
         return cv
     finally:
         H, GY, CH = old

@@ -5,21 +5,28 @@ static void set(struct rect *r, short x, short y, short w, short h)
     r->x = x; r->y = y; r->w = w; r->h = h;
 }
 
-/* The windows of the dialogs, from the mockups' buy window (228 wide at x = 46; 190 high at y = 22 on PAL, 176 at 14 on NTSC).
- * Every button is in a band of its own so that one click is one button whatever dialog is open; the title's come with Task 7. */
+/* The windows of the dialogs. The buy window is the full width and short (the grid and the side panel are not needed while
+ * buying), so that the table of netrunners below it stays in view: on PAL it ends at y = 132 above the seats' table (160), on
+ * NTSC at 102 above a table the buy window makes taller (106 to 165), the log untouched. Its rows run down the left; the tally
+ * and the three buttons stack in the column at the right. The small windows (hivejack, seat count, Y/N) are the mockups'
+ * 228 wide ones, where they were. The buy column shares screen with their buttons, so a click looks among its own dialog's
+ * (layout_btn_in). */
 static void dialogs(struct layout *l, unsigned char ntsc)
 {
-    short wx = 46, ww = 228, wy = ntsc ? 14 : 22, wh = ntsc ? 176 : 190, by = wy + wh - (ntsc ? 20 : 22), y0, step, i;
+    short wx = 46, wy = ntsc ? 14 : 22, i;
+    short bx = 4, by = 12, bw = 312, bh = ntsc ? 90 : 120, step = ntsc ? 9 : 13, bt = ntsc ? 13 : 16, bg = ntsc ? 14 : 18;
 
-    set(&l->dlg, wx, wy, ww, wh);
-    y0 = wy + (ntsc ? 34 : 37);
-    step = ntsc ? 12 : 15;
+    set(&l->dlg, bx, by, bw, bh);
     for (i = 0; i < NSYN; ++i)
-        set(&l->dlg_row[i], wx + 4, y0 + i * step - (ntsc ? 1 : 2), ww - 8, ntsc ? 11 : 14);
-    set(&l->btn[BTN_BUY], wx + 8, by, 36, 16);
-    set(&l->btn[BTN_UNDO], wx + 62, by, 44, 16);
-    set(&l->btn[BTN_NULLROUTE], wx + 118, by, 92, 16);   /* the mockup's "CALL NULL-ROUTE" ran past the window */
-    set(&l->dlg_small, wx, wy, ww, 108);
+        set(&l->dlg_row[i], bx + 4, by + (ntsc ? 22 : 24) + i * step, 212, step - (ntsc ? 0 : 1));
+    set(&l->btn[BTN_BUY], bx + 220, by + (ntsc ? 44 : 56), 88, bt);
+    set(&l->btn[BTN_UNDO], bx + 220, by + (ntsc ? 44 : 56) + bg, 88, bt);
+    set(&l->btn[BTN_NULLROUTE], bx + 220, by + (ntsc ? 44 : 56) + 2 * bg, 88, bt);
+    if (ntsc)
+        set(&l->tbl_buy, 0, 106, 320, l->log.y - 106);
+    else
+        l->tbl_buy = l->seats_area;
+    set(&l->dlg_small, wx, wy, 228, 108);
     set(&l->btn[BTN_MINUS], wx + 70, wy + 36, 24, 16);
     set(&l->btn[BTN_PLUS], wx + 134, wy + 36, 24, 16);
     for (i = 0; i < 5; ++i)

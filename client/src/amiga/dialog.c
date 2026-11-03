@@ -118,19 +118,14 @@ static void underline(const struct rect *r, unsigned char n, unsigned char pen)
 static void draw_buy(void)
 {
     const struct rect *w = &LY.dlg;
-    unsigned char i, k, n, l, off = LY.ntsc ? 1 : 2, bought[NSYN];
+    unsigned char i, k, n, l, off = LY.ntsc ? 1 : 2, bought[NSYN], hy = LY.ntsc ? 13 : 14;
     unsigned total = 0, cash_here = pr[1] | (unsigned)pr[2] << 8;
-    char line[24];
 
     TITLE(w, "BUY " T_COIN);
-    memcpy(line, "UP TO 3 A TURN: CLICK", 21);
-    line[6] = '0' + RULE_MAXBUY;
-    gfx_text(w->x + 8, w->y + (LY.ntsc ? 14 : 15), line, 21, PEN_TEXT, PEN_BG2);
-    gfx_text(w->x + 18, w->y + (LY.ntsc ? 24 : 26), T_HIVE, sizeof T_HIVE - 1, PEN_DIM, PEN_BG2);
-    gfx_text(w->x + 70, w->y + (LY.ntsc ? 24 : 26), "HELD", 4, PEN_DIM, PEN_BG2);   /* what the netrunner already has: the choice needs it */
-    gfx_text(w->x + 108, w->y + (LY.ntsc ? 24 : 26), "PRICE", 5, PEN_DIM, PEN_BG2);
-    gfx_text(w->x + 152, w->y + (LY.ntsc ? 24 : 26), "LEFT", 4, PEN_DIM, PEN_BG2);
-    gfx_text(w->x + 192, w->y + (LY.ntsc ? 24 : 26), "BUY", 3, PEN_DIM, PEN_BG2);
+    gfx_text(w->x + 18, w->y + hy, T_HIVE, sizeof T_HIVE - 1, PEN_DIM, PEN_BG2);
+    gfx_text(w->x + 70, w->y + hy, "HELD", 4, PEN_DIM, PEN_BG2);   /* what the netrunner already has: the choice needs it */
+    gfx_text(w->x + 108, w->y + hy, "PRICE", 5, PEN_DIM, PEN_BG2);
+    gfx_text(w->x + 152, w->y + hy, "LEFT", 4, PEN_DIM, PEN_BG2);
     memset(bought, 0, sizeof bought);
     for (i = 0; i < edit_len; ++i)
         for (k = 0; k < NSYN; ++k)
@@ -161,26 +156,24 @@ static void draw_buy(void)
             gfx_text(w->x + 108, y, "  ---", 5, PEN_DIM, bg);
         }
         for (n = 0; n < bought[i]; ++n) {
-            struct rect chip = { w->x + 176 + n * 14, row->y, 12, row->h - 1 };
+            struct rect chip = { w->x + 172 + n * 14, row->y, 12, row->h - 1 };
             char c = syn_letter[i];
             gfx_bevel(&chip, PEN_SYN + i, PEN_WHITE, PEN_BG0);
             gfx_text(chip.x + 2, chip.y + (chip.h - 7) / 2, &c, 1, PEN_BG0, PEN_SYN + i);
         }
     }
-    {
-        const struct rect *last = &LY.dlg_row[NSYN - 1];
-        struct rect sep = { w->x + 4, last->y + last->h + 1, w->w - 8, 1 };
-        short y = sep.y + (LY.ntsc ? 4 : 5);
-        gfx_rect(&sep, PEN_EDGE);
-        gfx_text(w->x + 8, y, "TOTAL ", 6, PEN_WHITE, PEN_BG2);
+    {                                   /* the tally, above the buttons in the column at the right */
+        short x = w->x + 220, y = w->y + (LY.ntsc ? 14 : 16), dy = LY.ntsc ? 9 : 11;
+        unsigned char over = total > cash_here;
+        gfx_text(x, y, "TOTAL", 5, PEN_WHITE, PEN_BG2);
         l = number(total, 1);
-        gfx_text(w->x + 56, y, numtxt, l, PEN_WHITE, PEN_BG2);
-        gfx_text(w->x + 110, y, "CASH ", 5, PEN_TEXT, PEN_BG2);
+        gfx_text_right(x + 88, y, numtxt, l, PEN_WHITE, PEN_BG2);
+        gfx_text(x, y + dy, "CASH", 4, PEN_TEXT, PEN_BG2);
         l = number(cash_here, 1);
-        gfx_text(w->x + 150, y, numtxt, l, PEN_TEXT, PEN_BG2);
-        gfx_text(w->x + 8, y + (LY.ntsc ? 9 : 10), "LEFT  ", 6, PEN_GREEN, PEN_BG2);
-        l = number(total > cash_here ? 0 : cash_here - total, 1);
-        gfx_text(w->x + 56, y + (LY.ntsc ? 9 : 10), numtxt, l, total > cash_here ? PEN_RED : PEN_GREEN, PEN_BG2);
+        gfx_text_right(x + 88, y + dy, numtxt, l, PEN_TEXT, PEN_BG2);
+        gfx_text(x, y + 2 * dy, "LEFT", 4, over ? PEN_RED : PEN_GREEN, PEN_BG2);
+        l = number(over ? 0 : cash_here - total, 1);
+        gfx_text_right(x + 88, y + 2 * dy, numtxt, l, over ? PEN_RED : PEN_GREEN, PEN_BG2);
     }
     LABEL(&LY.btn[BTN_BUY], "BUY", PEN_GREEN, PEN_WHITE, PEN_BG0);
     LABEL(&LY.btn[BTN_UNDO], "UNDO", PEN_BG2, PEN_EDGEHI, PEN_WHITE);
@@ -287,8 +280,16 @@ void dialog_sync(void)
         }
         if (want) {
             below.x = 0; below.y = LY.header.h; below.w = LY.width; below.h = LY.prompt.y - LY.header.h;
-            saved = gfx_save(&below);
-            gfx_dim(&below, PEN_BG0);
+            if (want == 'B') {          /* the table and the log stay in view: only what is above the table is dimmed */
+                below.h = LY.tbl_buy.y + LY.tbl_buy.h - LY.header.h;
+                saved = gfx_save(&below);
+                below.h = LY.tbl_buy.y - LY.header.h;
+                gfx_dim(&below, PEN_BG0);
+                display_buy_table();
+            } else {
+                saved = gfx_save(&below);
+                gfx_dim(&below, PEN_BG0);
+            }
             ui_reset();
         }
         shown = want;

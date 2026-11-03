@@ -54,7 +54,7 @@ static unsigned char hivejack(const struct layout *l, short x, short y, unsigned
     signed char b;
     unsigned char n = 0, t, m;
     if (button == UI_RIGHT) { count = 0; dirty = 1; return 0; }
-    b = layout_btn_at(l, x, y);
+    b = layout_btn_in(l, x, y, BTN_OK, BTN_MINUS);
     if (b == BTN_PLUS) {
         m = stepper_max();
         t = step ? 2 : 1;
@@ -82,7 +82,7 @@ static unsigned char buy(const struct layout *l, short x, short y, unsigned char
 {
     signed char b, i;
     if (button == UI_RIGHT) return one(keys, step ? 'N' : K_DELETE);
-    b = layout_btn_at(l, x, y);
+    b = layout_btn_in(l, x, y, step ? BTN_YES : BTN_BUY, step ? BTN_NO : BTN_NULLROUTE);
     if (step) return b == BTN_YES ? one(keys, 'Y') : b == BTN_NO ? one(keys, 'N') : 0;
     if (b == BTN_BUY) return one(keys, K_RETURN);
     if (b == BTN_UNDO) return one(keys, K_DELETE);
@@ -129,7 +129,7 @@ unsigned char ui_click(const struct layout *l, short x, short y, unsigned char b
         return 0;
     }
     if (leaving || (title && yesno)) {          /* a Y/N question: only a yes is a yes */
-        b = layout_btn_at(l, x, y);
+        b = layout_btn_in(l, x, y, BTN_YES, BTN_NO);
         return one(keys, button == UI_LEFT && b == BTN_YES ? 'Y' : 'N');
     }
     if (title) return title_click(l, x, y, button, keys);
@@ -138,7 +138,7 @@ unsigned char ui_click(const struct layout *l, short x, short y, unsigned char b
     if (!pr_kind || !link_up) return 0;
     switch (pr_kind) {
     case 'S':
-        b = layout_btn_at(l, x, y);
+        b = layout_btn_in(l, x, y, BTN_SEAT2, BTN_SEAT6);
         return button == UI_LEFT && b >= BTN_SEAT2 && b <= BTN_SEAT6 ? one(keys, '2' + (b - BTN_SEAT2)) : 0;
     case 'B': return buy(l, x, y, button, keys);
     case 'D': return hivejack(l, x, y, button, keys);

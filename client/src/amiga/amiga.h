@@ -31,6 +31,7 @@ unsigned char dialog_quit_open(void);   /* the title's quit question is up */
 void amiga_set_server(const char *url); /* the server the next dial uses, kept with the handle (prefs_io.c) */
 void menus_close(void);                 /* take the strip off the window */
 void amiga_toggle_table(void);          /* F4 or a click on the seats: cards or table */
+void display_buy_table(void);          /* the table of every netrunner, for as long as the buy window is up  */
 void dialog_forget(void);               /* a full repaint is coming: drop what the window saved */
 void display_kit_stale(void);           /* the kit panel must be drawn again at the next prompt */
 unsigned char amiga_scroll_others(signed char d);   /* NTSC: the seat list up (-1) or down (1); 1 if it took the click */

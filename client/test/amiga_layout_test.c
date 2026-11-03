@@ -237,9 +237,13 @@ static void test_dialog_fits_above_prompt(void)
         layout_make(&l, heights[h]);
         CHECK(l.dlg.y >= l.header.y + l.header.h && l.dlg.y + l.dlg.h <= l.prompt.y);
         CHECK(l.dlg.x >= 0 && l.dlg.x + l.dlg.w <= l.width);
-        CHECK(within(&l.dlg_small, &l.dlg));
+        CHECK(l.dlg_small.y >= l.header.y + l.header.h && l.dlg_small.y + l.dlg_small.h <= l.prompt.y);
         CHECK(l.ask.x >= 0 && l.ask.x + l.ask.w <= l.width && l.ask.y + l.ask.h <= l.prompt.y);
-        CHECK(l.dlg.w == 228 && l.dlg.h == (h ? 176 : 190));            /* the mockups' windows */
+        CHECK(l.dlg.w == 312 && l.dlg.h == (h ? 90 : 120));             /* the wide, short buy window */
+        CHECK(l.dlg_small.w == 228);                                    /* the mockups' small windows */
+        /* the table stays in view under the buy window, and the log is never touched */
+        CHECK(l.dlg.y + l.dlg.h <= l.tbl_buy.y && l.tbl_buy.y + l.tbl_buy.h <= l.log.y);
+        CHECK(l.tbl_buy.h >= 2 + 8 * (1 + RULE_MAXPLAYERS));            /* a header and every seat's row of 8 */
     }
 }
 static void test_buttons_inside_dialog_and_disjoint(void)
@@ -257,12 +261,13 @@ static void test_buttons_inside_dialog_and_disjoint(void)
         for (a = BTN_BUY; a <= BTN_SEAT6; ++a) {
             CHECK(l.btn[a].w > 0 && l.btn[a].h > 0);
             for (b = a + 1; b <= BTN_SEAT6; ++b)
-                CHECK(apart(&l.btn[a], &l.btn[b]));                     /* one click, one button */
+                if ((a <= BTN_NULLROUTE) == (b <= BTN_NULLROUTE))     /* the buy window's three, and the rest, are each apart */
+                    CHECK(apart(&l.btn[a], &l.btn[b]));                 /* one click, one button, in a dialog's own set */
         }
         for (i = 0; i < NSYN; ++i) {
             CHECK(within(&l.dlg_row[i], &l.dlg));
             CHECK(i == 0 || apart(&l.dlg_row[i - 1], &l.dlg_row[i]));
-            CHECK(apart(&l.dlg_row[i], &l.btn[BTN_BUY]) && apart(&l.dlg_row[i], &l.btn[BTN_NULLROUTE]));
+            CHECK(apart(&l.dlg_row[i], &l.btn[BTN_BUY]) && apart(&l.dlg_row[i], &l.btn[BTN_UNDO]) && apart(&l.dlg_row[i], &l.btn[BTN_NULLROUTE]));
         }
     }
 }

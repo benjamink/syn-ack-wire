@@ -28,6 +28,7 @@ struct layout {
     struct rect seats_area;             /* all of it: the cards or the table, and a click that flips between them */
     struct rect help_page, help_prev, help_exit, help_next;   /* the instruction page (it covers the screen), and the click zones of its footer */
     struct rect dlg, dlg_row[NSYN];     /* the buy window, and its syndicate rows */
+    struct rect tbl_buy;                /* the table of every netrunner while buying: PAL the seats' area, NTSC taller */
     struct rect dlg_small, ask;         /* the hivejack and seat-count window (the buy window's top), and a Y/N question */
     struct rect btn[UI_BTN_MAX];        /* empty (w == 0) until the dialog or title that owns it fills it in */
 };
