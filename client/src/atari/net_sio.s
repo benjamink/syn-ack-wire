@@ -6,43 +6,64 @@
 ; reaches the PIA's CA1 input. We can't just read the latched flag in PACTL,
 ; because the OS vertical blank reads PORTA for the joysticks every frame, and
 ; that clears it. So the CA1 interrupt is enabled and a 6-byte handler sets
-; `ready`. net_poll only spends an SIO status call when `ready` is set, or once
-; a second as a safety net for a missed pulse or a quiet disconnect.
+; `ready`. net_poll only spends an SIO status call when `ready` is set, or every
+; 4 seconds as a safety net for a missed pulse or a quiet disconnect.
 ;
-; Every call skips the parallel bus (PDVMSK 0 for the call), so a U1MB or
-; Incognito with high-speed SIO on can't change the speed: the OS's own SIO
-; talks to the FujiNet at 19200.
+; SIO is our own, not the OS's (derived from the GEOS port's disk driver): it
+; talks to POKEY directly, polled with IRQs masked, always at 19200, so nothing
+; that hooks SIOV (a U1MB's or Incognito's high-speed SIO) changes it, and it
+; leaves POKEY channels 1 and 2 alone, so a chord sounds straight through a
+; transfer. Channels 3 and 4 are its serial clock. The OS's VBI and our DLIs
+; still run: at 19200 a byte takes about 930 cycles. A key or PROCEED during a
+; transfer waits in its latch until the transfer ends. The DCB at $0300 holds
+; the call, as for SIOV. A command frame without an ACK is sent again (the first
+; after a boot at high speed needs it, while FujiNet switches back); once
+; acknowledged, a failed transfer is an error, never a resend, as the network
+; device has already acted on it.
 
         .export _net_open, _net_poll, _net_send, _net_close, _net_appkey
         .export _rx_head, _rx_tail, _tx
-        .export net_hush
         .import _rx_ring
+        .importzp ptr1
 
 DDEVIC  = $0300
-DUNIT   = $0301
 DCOMND  = $0302
-DSTATS  = $0303
+DSTATS  = $0303         ; direction: $80 write, $40 read, 0 neither
 DBUFLO  = $0304
 DBUFHI  = $0305
-DTIMLO  = $0306
-DBYTLO  = $0308
+DBYTLO  = $0308         ; 1-255, or 0 for 256
 DBYTHI  = $0309
 DAUX1   = $030A
 DAUX2   = $030B
-SIOV    = $E459
-PDVMSK  = $0247         ; the parallel devices SIO may call (XL/XE)
-SOUNDR  = $41           ; 0 = no beeps during SIO
 RTCLOK  = $14           ; jiffy counter, low byte
+POKMSK  = $10           ; IRQEN shadow
+SSKCTL  = $0232         ; SKCTL shadow
+AUDF3   = $D204
+AUDC3   = $D205
+AUDF4   = $D206
+AUDC4   = $D207
+AUDCTL  = $D208
+SKREST  = $D20A
+SERIO   = $D20D         ; SEROUT written, SERIN read
+IRQEN   = $D20E         ; IRQST when read; its bits are 0 while latched
+SKCTL   = $D20F         ; SKSTAT when read
+PBCTL   = $D303         ; $34: the SIO COMMAND line low, $3C: high
+WSYNC   = $D40A
 VPRCED  = $0202         ; PROCEED interrupt vector
 PORTA   = $D300         ; reading it clears the CA1 interrupt flag
 PACTL   = $D302         ; bit 0 enables the CA1 (PROCEED) interrupt; bit 3 is the
                         ; cassette motor, so only ever OR into it
-SAFETY  = 60            ; jiffies between status calls with no PROCEED (about 1 s)
+SAFETY  = 240           ; jiffies between status calls with no PROCEED (4 s; each is a
+                        ; faint chirp of serial noise, and NO SIGNAL waits 20 s anyway)
 
 NDEV    = $71           ; N1:
 FUJI    = $70           ; the FujiNet device itself: AppKeys
-TIMEOUT = 15            ; DTIMLO units of 64 frames, about a second each
 NET_CLOSED = $FF
+TRIES   = 13            ; command frames sent before giving up, as the OS
+ACKWAIT = 15            ; frames to wait for an ACK, and between data bytes
+SERIN   = $20           ; IRQEN/IRQST bits: a byte came in,
+SEROR   = $10           ;   SEROUT wants the next,
+SEROC   = $08           ;   the last has gone out
 
 ; command index -> SIO command, DSTATS direction
 OPEN    = 0
@@ -61,8 +82,13 @@ stat:   .res 4          ; bytes waiting lo/hi, connected, error
 n:      .res 1
 ready:  .res 1          ; non-zero: FujiNet has something, or bytes were left behind
 last:   .res 1          ; RTCLOK at the last status call
-net_hush: .res 1        ; non-zero while a sound plays (sound.s keeps its volume here):
-                        ; skip the safety status call, because SIO turns the sound off
+sum:    .res 1          ; the frame's checksum so far
+txbusy: .res 1          ; $FF once SEROUT has a byte of this frame
+irqbase: .res 1         ; IRQEN without the serial bits
+ticks:  .res 1          ; frames left to wait
+tlast:  .res 1          ; RTCLOK when last looked at
+tries:  .res 1
+want:   .res 1          ; the data's own checksum, then the long wait's count
 
         .data
 akey:   .word 1         ; AppKey open block: creator (FujiNet), app (the lobby),
@@ -114,7 +140,6 @@ _net_open:
         ora #1
         sta PACTL               ; CA1 interrupt on
         ldy #0
-        sty SOUNDR              ; no SIO beeps: we poll many times a second
         sty _rx_head            ; anything left from an old connection is junk
         sty _rx_tail
         sty DBYTLO
@@ -136,20 +161,17 @@ proceed:
         rti
 
 ; unsigned char net_poll(void)
-; Cheap unless PROCEED fired (or a second has passed): then one status call and,
+; Cheap unless PROCEED fired (or 4 seconds have passed): then one status call and,
 ; if bytes are waiting, one read of as many as fit before the ring's page end
 ; without overrunning unparsed bytes. Bytes left behind keep `ready` set.
 _net_poll:
         lda ready
         bne @go
-        clc
-        lda net_hush            ; a sound playing: the safety check can wait
-        bne @wait               ; (ok is out of reach; carry is clear)
         lda RTCLOK
         sec
         sbc last
         cmp #SAFETY
-@wait:  bcc ok
+        bcc ok
 @go:    lda #0
         sta ready               ; a PROCEED from here on means "poll again"
         lda RTCLOK
@@ -246,30 +268,241 @@ xfer_page:
         tya
         tax
 
-; X = command index. Returns A = 0 if SIO said OK, else its status; X = 0.
+; X = command index. Returns A = 0 if fine, else an SIO error ($8A timeout, $8B
+; no ACK, $8F checksum or framing, $90 the device's error); X = 0.
 sio:    lda #NDEV
         cpx #AKOPEN
         bcc :+
         lda #FUJI
-:       sta DDEVIC
-        lda #1
-        sta DUNIT
+:       sta DDEVIC              ; unit 1: the device byte as it is
         lda cmd,x
         sta DCOMND
         lda dir,x
         sta DSTATS
-        lda #TIMEOUT
-        sta DTIMLO
-        lda PDVMSK
-        pha
+        lda DBUFLO
+        sta ptr1
+        lda DBUFHI
+        sta ptr1+1
+        php
+        sei
+        lda POKMSK
+        and #<~(SERIN|SEROR|SEROC)
+        sta irqbase
+        lda #$28                ; channel 3 at 1.79 MHz, joined to 4: 19200 baud
+        sta AUDCTL
+        sta AUDF3
         lda #0
-        sta PDVMSK
-        jsr SIOV
-        pla
-        sta PDVMSK
-        ldx #0
-        lda DSTATS              ; SIO status, 1 = OK
-        cmp #1
-        bne :+
+        sta AUDF4
+        lda #$A0                ; pure tone, no volume
+        sta AUDC3
+        sta AUDC4
+        lda #TRIES
+        sta tries
+@cmd:   jsr command
+        bcc @acked
+        dec tries
+        bne @cmd
+        beq @end                ; A = its error
+@acked: bit DSTATS
+        bmi @write
+        bvs @read
+        jsr complete            ; neither way: just COMPLETE
+        jmp @end
+@write: ldy #20                 ; at least 1 ms after the ACK
+        jsr delay
+        jsr sendstart
+        ldy #0
+:       lda (ptr1),y
+        jsr putb
+        iny
+        cpy DBYTLO
+        bne :-
+        lda sum
+        jsr putb
+        jsr sendend
+        jsr ack
+        bcs @end
+        jsr complete
+        jmp @end
+@read:  jsr complete
+        bcs @end
+        sta sum                 ; A = 0: the checksum covers the data only
+        tay
+:       jsr getb
+        bcs @tmo
+        sta (ptr1),y
+        iny
+        cpy DBYTLO
+        bne :-
+        lda sum
+        sta want
+        jsr getb
+        bcs @tmo
+        cmp want
+        bne @bad
+        lda SKCTL               ; framing error or overrun? (bits 7, 6: 0 if so)
+        and #$C0
+        cmp #$C0
+        bne @bad
+        lda #0
+        beq @end                ; always
+@bad:   lda #$8F
+        bne @end                ; always
+@tmo:   lda #$8A
+@end:   tax
+        lda SSKCTL              ; the serial port, IRQs, COMMAND and channels 3-4
+        sta SKCTL               ; as the OS left them
+        lda POKMSK
+        sta IRQEN
+        lda #$3C
+        sta PBCTL
+        lda #0
+        sta AUDC3
+        sta AUDC4
+        plp
         txa
-:       rts
+        ldx #0
+        ora #0                  ; Z for the callers
+        rts
+
+; Send the command frame and wait for its ACK: carry clear if it came, else set
+; with A = the error.
+command:
+        lda #$34                ; COMMAND low
+        sta PBCTL
+        ldy #14                 ; 750-1600 us before the frame
+        jsr delay
+        jsr sendstart
+        lda DDEVIC
+        jsr putb
+        lda DCOMND
+        jsr putb
+        lda DAUX1
+        jsr putb
+        lda DAUX2
+        jsr putb
+        lda sum
+        jsr putb
+        jsr sendend
+        ldy #12                 ; 650-950 us after it
+        jsr delay
+        lda #$3C                ; COMMAND high
+        sta PBCTL
+ack:    jsr getb                ; (sendend has us listening)
+        bcs tmo
+        cmp #'A'
+        beq yes
+        lda #$8B                ; NAK
+        sec
+        rts
+
+; Wait up to 16 s for COMPLETE: carry clear and A = 0 if it came, else set with
+; A = the error.
+complete:
+        lda #4
+        sta want
+:       lda #240
+        jsr getbt
+        bcc :+
+        dec want
+        bne :-
+tmo:    lda #$8A                ; carry is set
+        rts
+:       cmp #'C'
+        bne :+
+        lda #0
+yes:    clc
+        rts
+:       lda #$90                ; 'E': the device's error
+        sec
+        rts
+
+; A byte into A, added to the checksum: carry clear, or set if none came in
+; ACKWAIT frames (getbt: in A frames). Keeps Y.
+getb:   lda #ACKWAIT
+getbt:  sta ticks
+        lda RTCLOK
+        sta tlast
+@wait:  lda IRQEN
+        and #SERIN
+        beq @got
+        lda RTCLOK
+        cmp tlast
+        beq @wait
+        sta tlast
+        dec ticks
+        bne @wait
+        sec
+        rts
+@got:   lda irqbase             ; let the latch take the next byte
+        sta IRQEN
+        ora #SERIN
+        sta IRQEN
+        lda SERIO
+        pha
+        clc
+        adc sum
+        adc #0
+        sta sum
+        pla
+        clc
+        rts
+
+; Send A, adding it to the checksum. Keeps X and Y.
+putb:   pha
+        clc
+        adc sum
+        adc #0
+        sta sum
+        bit txbusy              ; the frame's first byte goes straight out
+        bpl @put
+:       lda IRQEN               ; wait for SEROUT to take the next
+        and #SEROR
+        bne :-
+        lda irqbase
+        ora #SEROC
+        sta IRQEN
+        ora #SEROR
+        sta IRQEN
+@put:   pla
+        sta SERIO
+        lda #$FF
+        sta txbusy
+        rts
+
+; Ready POKEY to send a frame; the checksum starts at 0.
+sendstart:
+        lda #$23                ; send, clocked by channel 4
+        sta SKCTL
+        sta SKREST
+        lda irqbase
+        sta IRQEN
+        ora #SEROR|SEROC
+        sta IRQEN
+        lda #0
+        sta sum
+        sta txbusy
+        rts
+
+; Wait for the frame's last byte to go out, then listen.
+sendend:
+:       lda IRQEN
+        and #SEROR
+        bne :-
+:       lda IRQEN
+        and #SEROC
+        bne :-
+        lda #$13                ; receive, clocked by channels 3 and 4
+        sta SKCTL
+        sta SKREST
+        lda irqbase
+        sta IRQEN
+        ora #SERIN
+        sta IRQEN
+        rts
+
+; Wait Y scan lines.
+delay:  sta WSYNC
+        dey
+        bne delay
+        rts

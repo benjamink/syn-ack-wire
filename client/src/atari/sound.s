@@ -3,16 +3,13 @@
 ; and 2 only, and nothing here writes 3, 4 or AUDCTL (SIO's $28 there leaves
 ; 1 and 2 on the 64 kHz clock). A chord's three notes share the two: channel 1
 ; holds the first (the lowest), channel 2 alternates the other two every frame,
-; an arpeggio quick enough to hear as one chord. A note left on channel 4 made later SIO reads
-; fail (FujiNet saw the same read retried after it had already sent the bytes).
-; The OS runs the immediate VBI even while SIO runs (only the deferred one waits
-; for CRITIC), so the envelope keeps time through a transfer, and the chord is
-; written every frame: SIO turns channels 1 and 2 off each time it switches
-; between sending and receiving, and again at the end, and the next frame puts
-; them back. Only short calls still drop out, so while a chord sounds net_poll
-; skips its once-a-second status check and only reads when FujiNet has data.
-; Our volume lives in net_sio.s's net_hush, so the network code links without
-; this file.
+; an arpeggio quick enough to hear as one chord. A note left on channel 4 made
+; later SIO reads fail (FujiNet saw the same read retried after it had already
+; sent the bytes). The immediate VBI runs during SIO too (net_sio.s masks IRQs,
+; not NMIs), so the envelope keeps time, and net_sio.s's own SIO never touches
+; channels 1 and 2: a chord sounds straight through a transfer. (The OS's SIO,
+; which the instruction pages still use, turns them off; the next frame puts
+; them back.)
 ;
 ; All chords are from B Locrian, 8-bit dividers on the 64 kHz clock:
 ; f = 63921 / (2 * (AUDF + 1)), within 10 cents from E3 to A4.
@@ -22,7 +19,6 @@
 ; void snd_toggle(void)
 
         .export _snd_init, _play_chord, _snd_toggle
-        .import net_hush
 
 AUDF1   = $D200
 AUDC1   = $D201
@@ -51,9 +47,8 @@ A4 = 72
         .data
 _snd_on: .byte 1
 
-vol     = net_hush      ; 0 = silent: the VBI leaves POKEY alone
-
         .bss
+vol:    .res 1          ; 0 = silent: the VBI leaves POKEY alone
 pitch:  .res 3          ; the chord now sounding: the held note, the two alternating
 rate:   .res 1          ;   starting volume << 4 | frames per volume step
 next:   .res 1          ;   the chord after it, or $FF
