@@ -10,7 +10,8 @@
 ; unsigned char __fastcall__ fresh_buf(unsigned char place)  the same for buf..bp, its length first
 
         .export _sig, _all, _mix, _fresh, _fresh_buf
-        .import _buf, _bp, popax
+        .import _buf, popax
+bp      = $78                   ; draw.s
         .importzp ptr1, tmp1
 
 PLACES  = 16                    ; display_gui.c's S_COUNT, or fewer
@@ -42,7 +43,7 @@ _mix:   sta tmp1                ; len
 
 _fresh_buf:
         pha                     ; place
-        lda _bp
+        lda bp
         sec
         sbc #<_buf
         sta _sig                ; the length, then the bytes

@@ -594,7 +594,7 @@ intv-auto:
 GEOS    = build/geos
 GEOSFLAGS = -t geos-cbm -O -Or -Cl -DDISPLAY_IDLE=1 -DFANCY_TITLE=1 -DFANCY_PLAYFIELD=1 -DLOG_HISTORY=16 \
             -DQUIT_TO_OS=1 -DQUIT_ASK='"QUIT TO GEOS? Y/N"'
-GEOSOBJ = $(addprefix $(GEOS)/,header.o main.o game.o proto.o display_gui.o sig.o input.o screen.o \
+GEOSOBJ = $(addprefix $(GEOS)/,header.o main.o game.o proto.o display_gui.o draw.o sig.o input.o screen.o \
           frame.o net_sio.o sound.o ring.o memset.o)
 GEOSNAME = $(shell sed -n 's/^\#define TH_TITLE "\(.*\)"/\1/p' src/common/theme_tab.h)
 

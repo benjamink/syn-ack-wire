@@ -103,6 +103,7 @@ The 8-bit side. The server enforces every rule; the client draws what it is told
 | `src/geos/screen.s` | GEOS on the Atari: the OS ROM's font, copied from under GEOS; IRQs masked from start-up (geos-atari's keyboard IRQ, below); GEOS's colours back for its DeskTop |
 | `src/geos/frame.s` | GEOS on the Atari: our share of GEOS's frame interrupt: the tick, PROCEED's latch, the chords |
 | `src/geos/input.c` | GEOS on the Atari: keys from GEOS's keyboard queue, the pointer for the menus, OPTION and SELECT from CONSOL, `ticks()`, quitting to the DeskTop |
+| `src/geos/draw.s` | GEOS on the Atari: `display_gui.c`'s drawing helpers in assembly (areas, panels, text put together and drawn, numbers), and the tables of a screen's fixed panels and labels |
 | `src/geos/sig.s` | GEOS on the Atari: what the places drawn often show, as 16-bit signatures, so they're drawn again only when that changes |
 | `src/geos/memset.s`, `ring.s` | GEOS on the Atari: a `memset` in place of geos-cbm.lib's (see below); `rx_ring` at $0400 |
 | `tools/run-geos-disks.sh` | Plays the GEOS client as a player would: atari800 (PAL 130XE) boots `make geos-atr`'s two disks from FujiNet-PC, GEOS in D1:, the GEOS disk in D2:, joystick on for the pointer |
@@ -951,8 +952,9 @@ make geos-atr GEOS_ATARI=../../geos-atari                  # the two disks below
   (TYPE A HANDLE, THEN RETURN, the refusals, QUIT TO GEOS? Y/N, DIALING...). The menus work here too; Log off is
   idle and Quit asks nothing more. No static or colour.
 - **The playfield:**
-  - y 0-12, the menu bar: **geos** (About), **file** (Log off, Quit to DeskTop), **options** (Move hints and Sound,
-    ticked when on, with their keys), and the region and link on the right.
+  - y 0-12, the menu bar: **file** (Log off, Quit to DeskTop), **options** (Move hints and Sound, ticked when on,
+    with their keys), and the region and link on the right. No **geos** menu or About box (dropped for size, 544
+    bytes and 440 of bss).
   - The board: 12x8-pixel cells, a hive's nodes inverse with its letter, in the Atari's font: `display_gui.c` makes a
     GEOS font of its $20-$5F glyphs at start-up (8 rows of 64 bytes), so a glyph can sit at any x. Your kit's digits,
     `.` and `+` as on the Atari; the last move blinks.
@@ -968,7 +970,9 @@ make geos-atr GEOS_ATARI=../../geos-atari                  # the two disks below
   each key and the pointer (`mouseXPos`/`mouseYPos`, the fire button from TRIG0: geos-atari's driver sets
   `mouseData` only on a change) to `gui_poll()`: a click on a title opens its menu, on an item chooses it,
   anywhere else (or a key) closes it. While one is open the game goes on but draws nothing; afterwards what the
-  menu covered is put back, or the whole screen redrawn if anything changed. Quit queues Esc, Y (log off)
+  menu covered is put back and only what changed meanwhile drawn. Each menu's right edge is fixed (its widest
+  item and key in BSW 9, 30 between), so the save area is exactly the options menu's 15 bytes by 37 lines. Quit
+  queues Esc, Y (log off)
   and Esc, Y (quit, on the title) in `key_queue`. No desk accessories: one would stop the game's loop.
 - **The keyboard's IRQ** (geos-atari `kernal/keyboard/keyboard1.s`) writes GEOS's `r1H` and sets its bank lock
   (`interrupt_lock`) to 0 without saving either. `PutChar` works out a character's line from `r1H`; a key that
@@ -1000,18 +1004,23 @@ make geos-atr GEOS_ATARI=../../geos-atari                  # the two disks below
   **OPTION** (alone) move hints and **SELECT** sound, from CONSOL once a frame as on the Atari. No instruction
   pages yet: no HELP, and the title doesn't offer them.
 - **Sound:** the Atari's chords, stepped by `frame.s`; they hold still during a transfer (no frame interrupt).
+- **In assembly** (`draw.s`), for the room: the helpers everything is drawn with (`box`, `invert`, `panel`,
+  `put`, `text`, `number`, `width`, `out`, `show`, `show_right`, `say`, the Atari glyph), with their C prototypes
+  unchanged, and two short loops that draw a screen's fixed panels and labels from tables in `display_gui.c`.
+  The text pointer `bp` is in zero page at $78, the first of GEOS's application registers after cc65's own.
+  cc65's C for the helpers was about twice the size; tables for the fixed parts saved little more (23 bytes),
+  as a call to an assembly helper is already short.
 - **Drawing only what changed:** GEOS draws a place by clearing it white, then its text, so drawing one again
   with the same contents still flickers. The places drawn often (the title's four values, the bar, the clock, the
   HIVES header and its seven rows) keep a 16-bit signature of what drew them (`sig.s`: it rotates and takes in a
   byte at a time, so any one byte that differs changes it; a row of HIVES uses its size, crypto left and whether
   you're buying, which is exact, as the price follows from the size) and are drawn only when it changes. The rest
-  are drawn only when the server says they changed. While a menu or the About box is open nothing is drawn; the
+  are drawn only when the server says they changed. While a menu is open nothing is drawn; the
   nodes, seats, log and link it held back are noted, and closing it puts back what it covered and draws only
   those, and whatever else changed, instead of the whole screen.
-- **Memory:** loads at $0500, after the receive ring at $0400; the bss ends at about $5B03 and the C stack, 512
+- **Memory:** loads at $0500, after the receive ring at $0400; the bss ends at about $54BC and the C stack, 512
   bytes (cc65's default 1K didn't leave room; nothing here recurses), is at $5E00-$5FFF. The autoplay build has
-  119 bytes to spare (the About box lost its "Click, or press a key" line so a menu's save area could be 1000
-  bytes, not 1280). Going back to the title empties the log's history. geos-atari banks extended memory in at
+  1750 bytes to spare. Going back to the title empties the log's history. geos-atari banks extended memory in at
   $4000-$7FFF for its own code.
 - **cc65's `memset`:** geos-cbm.lib's is GEOS's `FillRam (dest, char, len)` under memset's name, but memset's fill
   value is an `int`: FillRam takes its high byte and the pointer's low byte as the destination ($xx00) and leaves
@@ -1022,11 +1031,10 @@ make geos-atr GEOS_ATARI=../../geos-atari                  # the two disks below
   for the real boot): the test disk names the program DESK TOP, so GEOS starts straight into it. Under GEOS a BRK
   goes to `BRKVector`; the autoplay build points that at PHP, RTI. `bmpNNN.bin` is the whole bitmap (200 lines of
   40 bytes). Part-way into its first game the GEOS
-  autoplay works the menus through `gui_poll()` as the pointer would (options: Move hints; geos: About; file),
+  autoplay works the menus through `gui_poll()` as the pointer would (options: Move hints; options again; file),
   steps back through the log and forward, then chooses Quit to DeskTop, which on the test disk starts it again.
 - **Tested** (2026-11-03, atari800 7.2.1 PAL 130XE, Fujisan's FujiNet-PC, geos-atari `deed5c6`): the autoplay
-  build through games against bots, from `-run` and from the boot disk; the menus, the About box, hints and sound
-  from the menu, the log's history, Quit to DeskTop and in again, round and round. The owner played it with the
+  build through games against bots, from `-run` and from the boot disk; the menus, hints and sound from the menu, the log's history, Quit to DeskTop and in again, round and round. The owner played it with the
   PC's mouse as the joystick (`run-geos-disks.sh`), which found the keyboard IRQ's crash; the fix is reasoned from
   geos-atari's source and passes the autoplay run, but a headless run types no real keys. Not yet on a real Atari.
 - **Not yet:** the instruction pages (a GEOS file), the title's static, colour, one disk instead of two, a place in
@@ -1047,8 +1055,9 @@ make geos-atr GEOS_ATARI=../../geos-atari                  # the two disks below
 | `snow.s` | 74 | + 48 rodata (masks), 3 bss: the title's static, also from the deferred VBI |
 | `dli.s` | 133 | the color bands' DLI handler and its display list switch (117 before the title's purple) |
 | **geos** (2026-11-03, cc65 `geos-cbm`) | | |
-| `synack.cvt` | 18345 | whole GEOS file (header and directory entry included); loads at $0500, 4.1K bss to $5B03 (18133 with the Atari's text title, 12138 with the text playfield too) |
-| `display_gui.c` | 8764 | the title (876 more than without it) and the playfield: + 1245 rodata (364 of title art), 1957 bss (the Atari font as a GEOS font, 714; what a menu covers, 1000; the bar's two lines); the menus and About box are 1.5K of it; drawing only what changed, 417 |
+| `synack.cvt` | 17185 | whole GEOS file (header and directory entry included); loads at $0500, 3.7K bss to $54BC (17801 with the helpers in C, 18345 with the About box, 18133 with the Atari's text title, 12138 with the text playfield too) |
+| `display_gui.c` | 6644 | the title and the playfield, the menus about 1.6K of it: + 1267 rodata (364 of title art; the fixed panels and labels), 1446 bss (the Atari font as a GEOS font, 714; what a menu covers, 560; the bar's two lines) |
+| `draw.s` | 1082 | + 65 bss (`buf`, the pen): the drawing helpers (1,668 less in `display_gui.c`) and the fixed parts' tables' loops |
 | `sig.s` | 109 | + 35 bss: the places' signatures |
 | `screen.s` | 83 | + 1K bss, the ROM's font, copied with ANTIC's DMA off (24 of it; 384 when it drew the text title too) |
 | `net_sio.s` | 680 | the Atari's, frame interrupt off during a transfer, no PROCEED handler |

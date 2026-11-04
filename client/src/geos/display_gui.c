@@ -69,191 +69,53 @@ void screen_init(void);                 /* screen.s: the font, IRQs masked */
 #define T_X     40                      /* the labels */
 #define T_VAL   96                      /* what they say */
 
-static unsigned char romfont[8 + 2 * 97 + 8 * 64];
+unsigned char romfont[8 + 2 * 97 + 8 * 64];   /* (draw.s draws with it) */
 static unsigned char gui_ready, gui_on, on_title;
 static unsigned char hold, missed;     /* a menu is open: drawing waits; something did */
-static unsigned char menu = 0xFF, item = 0xFF, about, was_down;  /* the open menu, its item; the About box */
-static struct window win;
-static unsigned px;                     /* the pen */
-static unsigned char i, j, n, v, bold;
+static unsigned char menu = 0xFF, item = 0xFF, was_down;   /* the open menu, its item */
+static unsigned char i, j, n, v;
 static unsigned char half;
-static unsigned char clip = 7;          /* text is drawn to here below its top: GEOS draws a
-                                           character's whole box, so it would wipe what's below */
 static const char *const mixed[NSYN] = SYN_MIXED;
 
 /* ---------------------------------------------------------------- drawing */
 
-static void box(unsigned char top, unsigned char bot, unsigned left, unsigned right, unsigned char pat)
-{
-    win.top = top;
-    win.bot = bot;
-    win.left = left;
-    win.right = right;
-    InitDrawWindow(&win);
-    SetPattern(pat);
-    Rectangle();
-}
+/* draw.s: areas, characters, text put together in buf from bp and drawn at the pen, px, in
+ * `bold` (0 or SET_BOLD), clipped `clip` lines below its top (GEOS draws a character's whole box,
+ * so it would wipe what's below). Bit 7 on a character in buf draws it the other way round from
+ * what's around it (inverse in a white area, plain in the bar); '\' is the yen. */
+extern unsigned px;
+extern unsigned char bold, clip, buf[48];
+#define bp (*(unsigned char **)0x78)    /* GEOS's application register a6 */
+void box(unsigned char top, unsigned char bot, unsigned left, unsigned right, unsigned char pat);
+void invert(unsigned char top, unsigned char bot, unsigned left, unsigned right);
+void panel(unsigned char top, unsigned char bot, unsigned left, unsigned right);
+void rom(unsigned char c, unsigned char y, unsigned x);     /* one of the Atari's glyphs */
+unsigned width(const unsigned char *s, unsigned char len);
+void put(unsigned char c);
+void text(const char *s);
+void textn(const unsigned char *s, unsigned char len);
+void number(unsigned value, unsigned char money);           /* money: the yen, and "00" after */
+void node_name(unsigned char node);
+void syn_letters(unsigned char mask);
+void out(const unsigned char *s, unsigned char len, unsigned char y);   /* at the pen, top y */
+void show(unsigned x, unsigned char y);                     /* buf at x */
+void show_right(unsigned x, unsigned char y);               /* buf ending at x */
+void say(const char *s, unsigned x, unsigned char y);
 
-/* Invert an area. geos-atari's InvertRectangle gets one wrong (kernal/graph/line.s, __InvertLineDo
- * has no case for it): both ends in one byte, the left one not on its first pixel, inverts to that
- * byte's end and the right end's mask in the next byte too. From the byte's first pixel it's right,
- * so that one is two: from there to the right end, then from there to just before the left end,
- * which inverts that part back. */
-static void invert(unsigned char top, unsigned char bot, unsigned left, unsigned right)
-{
-    if ((left & 7) && (left ^ (right + 1)) < 8) {   /* one byte */
-        invert(top, bot, left & ~7, right);
-        right = left - 1;
-        left &= ~7;
-    }
-    win.top = top;
-    win.bot = bot;
-    win.left = left;
-    win.right = right;
-    InitDrawWindow(&win);
-    InvertRectangle();
-}
-
-static void panel(unsigned char top, unsigned char bot, unsigned left, unsigned right)
-{
-    box(bot + 1, bot + 2, left + 2, right + 2, P_BLACK);   /* the shadow */
-    box(top + 2, bot + 2, right + 1, right + 2, P_BLACK);
-    box(top, bot, left, right, P_WHITE);
-    FrameRectangle(0xFF);
-}
-
-/* One character at the pen, top `y`. '\' is the yen, from the Atari's font. */
-static void glyph(unsigned char c, unsigned char y)
-{
-    currentMode = bold;
-    if (c == '\\') {
-        LoadCharSet((struct fontdesc *)romfont);
-        PutChar(c, y + BASE, px);
-        UseSystemFont();
-    } else {
-        PutChar(c, y + BASE, px);
-    }
-    px = r11;
-}
-
-/* One of the Atari's glyphs, at (x, y) */
-static void rom(unsigned char c, unsigned char y, unsigned x)
-{
-    curWindow.bot = y + 7;
-    currentMode = 0;
-    LoadCharSet((struct fontdesc *)romfont);
-    PutChar(c, y + BASE, x);
-    UseSystemFont();
-    curWindow.bot = 199;
-}
-
-static unsigned char cw(unsigned char c)
-{
-    return (c == '\\' ? 8 : GetCharWidth(c)) + (bold ? 1 : 0);
-}
-
-/* Text being put together for one place on the screen. Bit 7 on a character marks it
- * to show the other way round from what's around it (inverse in a white area, plain in
- * the bar). */
-unsigned char buf[48], *bp;             /* (sig.s reads them) */
-
-static void put(unsigned char c)
-{
-    if (bp < buf + sizeof buf)
-        *bp++ = c;
-}
-
-static void text(const char *s)
-{
-    while (*s)
-        put(*s++);
-}
-
-static void textn(const unsigned char *s, unsigned char len)
-{
-    while (len--)
-        put(*s++);
-}
-
-static void number(unsigned value, unsigned char money)
-{
-    static const unsigned pow10[5] = { 10000, 1000, 100, 10, 1 };
-    unsigned char len = 0, d, k;
-    if (money)
-        put('\\');
-    for (k = 0; k < 5; ++k) {
-        for (d = '0'; value >= pow10[k]; ++d)
-            value -= pow10[k];
-        if (len || d != '0' || k == 4) {
-            put(d);
-            ++len;
-        }
-    }
-    if (money && (len > 1 || bp[-1] != '0')) {
-        put('0');
-        put('0');
-    }
-}
-
-static void node_name(unsigned char node)
-{
-    for (n = 0; node >= RULE_COLS; ++n)
-        node -= RULE_COLS;
-    put('A' + node);
-    put('0' + n);
-}
-
-static void syn_letters(unsigned char mask)
-{
-    for (i = 0; i < NSYN; ++i)
-        if (mask >> i & 1) {
-            put(syn_letter[i] | 0x80);
-            put(' ');
-        }
-}
-
-static unsigned width(const unsigned char *s, unsigned char len)
-{
-    unsigned w = 0;
-    while (len--)
-        w += cw(*s++ & 0x7F);
-    return w;
-}
-
-/* Draw s at the pen, top y, the marked characters inverted. */
-static void out(const unsigned char *s, unsigned char len, unsigned char y)
-{
-    unsigned x0;
-    curWindow.bot = y + clip;
-    while (len--) {
-        v = *s++;
-        x0 = px;
-        glyph(v & 0x7F, y);
-        if (v & 0x80)
-            invert(y - 1, y + 7, x0, px - 1);
-    }
-    curWindow.bot = 199;                /* GEOS's own text (a Panic's box) unclipped */
-}
-
-/* buf at x, or ending at x (right) */
-static void show(unsigned x, unsigned char y)
-{
-    px = x;
-    out(buf, bp - buf, y);
-}
-
-static void show_right(unsigned x, unsigned char y)
-{
-    px = x - width(buf, bp - buf);
-    out(buf, bp - buf, y);
-}
-
-static void say(const char *s, unsigned x, unsigned char y)
-{
-    bp = buf;
-    text(s);
-    show(x, y);
-}
+/* The fixed parts of a screen, as tables (draw.s draws them). */
+struct label {
+    const char *s;
+    unsigned x;
+    unsigned char y, how;               /* GEOS's style (SET_BOLD), and: */
+};
+#define L_RIGHT 1                       /* ending at x */
+#define L_INV   2                       /* the other way round */
+struct area {
+    unsigned char top, bot;
+    unsigned left, right;
+};
+void labels(const struct label *p);     /* to one with s 0 */
+void panels(const struct area *p);      /* to one with top 0xFF */
 
 /* ---------------------------------------------------------------- set-up */
 
@@ -279,7 +141,7 @@ static void gui_init(void)
     half = ticks_per_sec() >> 1;
 }
 
-/* Draw now? Not while a menu or the About box is open: then remember to redraw. */
+/* Draw now? Not while a menu is open: then remember to redraw. */
 static unsigned char live(void)
 {
     if (hold) {
@@ -759,14 +621,11 @@ void display_link(void)
         invert(1, 11, px - width(buf, bp - buf) - 2, 316);
 }
 
-static void menu_bar(void)
-{
-    box(0, 12, 0, 319, P_WHITE);
-    FrameRectangle(0xFF);
-    say("geos", 6, 2);
-    say("file", 36, 2);
-    say("options", 62, 2);
-}
+static const struct label menu_labels[] = {
+    { "file", 6, 2, 0 },
+    { "options", 36, 2, 0 },
+    { 0 }
+};
 
 /* ---------------------------------------------------------------- the title */
 
@@ -825,22 +684,35 @@ void display_title_update(void)
     field(S_HINTS, T_Y + 33);
 }
 
+static const struct label title_labels[] = {
+    { "REGION", T_X, T_Y, SET_BOLD },
+    { "STATUS", T_X, T_Y + 10, SET_BOLD },
+    { "HANDLE", T_X, T_Y + 20, SET_BOLD },
+    { "OPTION", T_X, T_Y + 33, L_INV }, /* the key; not bold, which would overhang the inverse */
+    { 0 }
+};
+
 static void title_paint(void)
 {
     panel(14, 197, 3, 315);
     art();
-    bold = SET_BOLD;
-    say("REGION", T_X, T_Y);
-    say("STATUS", T_X, T_Y + 10);
-    say("HANDLE", T_X, T_Y + 20);
-    bold = 0;                           /* (bold would overhang the inverse) */
-    bp = buf;
-    text("OPTION");
-    for (i = 0; i < 6; ++i)             /* the key, inverse */
-        buf[i] |= 0x80;
-    show(T_X, T_Y + 33);
+    labels(title_labels);
     display_title_update();
 }
+
+static const struct area field_panels[] = {
+    { 14, 97, 3, BX + RULE_COLS * CW + 2 },     /* the board */
+    { 14, 97, HX, 315 },                        /* hives */
+    { SY, SY + 58, 3, 315 },                    /* seats */
+    { LY, 197, 3, 315 },                        /* log and bar */
+    { 0xFF }
+};
+static const struct label field_labels[] = {
+    { T_HIVE_P, HX + 4, 15, SET_BOLD },
+    { T_PLAYER, S_NAME, SY + 1, SET_BOLD },
+    { T_ACCOUNT, S_ACCT, SY + 1, SET_BOLD | L_RIGHT },
+    { 0 }
+};
 
 /* ---------------------------------------------------------------- the whole screen */
 
@@ -849,7 +721,9 @@ static void repaint(void)
 {
     all = 1;
     box(0, 199, 0, 319, P_DITHER);
-    menu_bar();
+    box(0, 12, 0, 319, P_WHITE);        /* the menu bar */
+    FrameRectangle(0xFF);
+    labels(menu_labels);
     if (on_title) {
         title_paint();
         bar();
@@ -857,8 +731,9 @@ static void repaint(void)
         return;
     }
     display_link();
+    panels(field_panels);
+    labels(field_labels);
     /* the board */
-    panel(14, 97, 3, BX + RULE_COLS * CW + 2);
     for (j = 0; j < RULE_COLS; ++j) {
         bp = buf;
         put('A' + j);
@@ -868,20 +743,10 @@ static void repaint(void)
         rom('0' + j, BY + CH * j, 4);
     for (j = 0; j < NODES; ++j)
         display_node(j);
-    /* hives */
-    panel(14, 97, HX, 315);
-    bold = SET_BOLD;
-    say(T_HIVE_P, HX + 4, 15);
-    bold = 0;
     display_hives();
     last_line();
     /* seats */
-    panel(SY, SY + 58, 3, 315);
     bold = SET_BOLD;
-    say(T_PLAYER, S_NAME, SY + 1);
-    bp = buf;
-    text(T_ACCOUNT);
-    show_right(S_ACCT, SY + 1);
     for (j = 0; j < NSYN; ++j) {
         bp = buf;
         put(syn_letter[j]);
@@ -892,7 +757,6 @@ static void repaint(void)
     for (i = 0; i < SEATS; ++i)
         display_seat(i);
     /* log and bar */
-    panel(LY, 197, 3, 315);
     log_lines();
     bar();
     all = 0;
@@ -926,7 +790,7 @@ static void refresh(void)
 static void take(void)
 {
     gui_on = 1;
-    hold = about = 0;
+    hold = 0;
     menu = item = 0xFF;
     dispBufferOn = ST_WR_FORE;
     MouseUp();
@@ -963,11 +827,10 @@ void display_playfield(void)
  * its menu, a click on an item chooses it, a click anywhere else or a key closes it. The
  * game goes on while one is open; what it would draw waits, and the screen is redrawn
  * after (or put back as it was, if nothing came). */
-#define A_ABOUT 1
-#define A_LOGOFF 2
-#define A_QUIT  3
-#define A_HINTS 4
-#define A_SOUND 5
+#define A_LOGOFF 1
+#define A_QUIT  2
+#define A_HINTS 3
+#define A_SOUND 4
 
 extern unsigned char snd_on;            /* sound.s */
 extern const unsigned char *key_queue;  /* input.c: keys to give the game, one a call */
@@ -977,20 +840,21 @@ struct item {
     unsigned char act;
 };
 static const struct item items[] = {
-    { "About " TH_TITLE, "", A_ABOUT },
     { TM_LOGOFF, "Esc", A_LOGOFF },
     { "Quit to DeskTop", "", A_QUIT },
     { "Move hints", "OPTION", A_HINTS },
     { "Sound", "SELECT", A_SOUND },
 };
-static const unsigned char first[4] = { 0, 1, 3, 5 };   /* each menu's items */
-static const unsigned char title_x[4] = { 0, 31, 57, 100 };  /* the titles' spans */
+static const unsigned char first[3] = { 0, 2, 4 };      /* each menu's items */
+static const unsigned char title_x[3] = { 0, 31, 72 };  /* the titles' spans */
+static const unsigned char menu_right[2] = { 99, 139 }; /* the widest item and its key, 30 between
+                                                           (GEOS's BSW 9: "Quit to DeskTop" 69,
+                                                           "Move hints" 49 + "OPTION" 29) */
 static const unsigned char quit_keys[] = { K_ESC, 'Y', K_ESC, 'Y', 0 };  /* log off, then quit */
 static const unsigned char logoff_keys[] = { K_ESC, 0 };   /* the Y/N is the player's */
 
-static unsigned char m_bot;
-static unsigned m_right;
-static unsigned char saved[1000];       /* what a menu or the About box covers */
+static unsigned char m_bot, m_right;
+static unsigned char saved[560];        /* what a menu covers: options, 15 bytes by 37 lines */
 static unsigned char sv_top, sv_rows, sv_xb, sv_bytes;
 
 static void save(unsigned char top, unsigned char bot, unsigned left, unsigned right)
@@ -1007,10 +871,10 @@ static void save(unsigned char top, unsigned char bot, unsigned left, unsigned r
 static void close_all(void)
 {
     unsigned char *p = saved;
-    if (menu == 0xFF && !about)
+    if (menu == 0xFF)
         return;
     menu = item = 0xFF;
-    about = hold = 0;
+    hold = 0;
     for (i = 0; i < sv_rows; ++i, p += sv_bytes)
         memcpy(BITMAP + (sv_top + i) * 40 + sv_xb, p, sv_bytes);
     if (missed) {
@@ -1026,19 +890,12 @@ static unsigned item_top(unsigned char k)
 
 static void open_menu(unsigned char m)
 {
-    unsigned w, wmax = 0;
     unsigned char k, y;
     menu = m;
     item = 0xFF;
     hold = 1;
-    for (k = first[m]; k < first[m + 1]; ++k) {
-        w = width((const unsigned char *)items[k].label, strlen(items[k].label))
-            + width((const unsigned char *)items[k].key, strlen(items[k].key));
-        if (w > wmax)
-            wmax = w;
-    }
     missed = 0;
-    m_right = title_x[m] + wmax + 30;
+    m_right = menu_right[m];
     m_bot = 14 + 10 * (first[m + 1] - first[m]) + 1;
     save(1, m_bot + 2, title_x[m], m_right + 2);
     invert(1, 11, title_x[m] + 1, title_x[m + 1] - 1);
@@ -1057,24 +914,6 @@ static void open_menu(unsigned char m)
     }
 }
 
-static void about_box(void)
-{
-    about = 1;
-    hold = 1;
-    missed = 0;
-    save(60, 96, 56, 266);              /* 999 bytes; a click or a key closes it */
-    panel(60, 94, 56, 264);
-    bold = SET_BOLD;
-    say(TH_TITLE, 68, 63);
-    bold = 0;
-    say("for GEOS on the Atari, through a FujiNet", 68, 74);
-    bp = buf;
-    textn(region, region_len);
-    put(':');
-    text(link_up ? "CONNECTED" : "NO SIGNAL");
-    show(68, 84);
-}
-
 /* The pointer and a key (0 if none) from in_key(): what the game should take as the key. */
 unsigned char __fastcall__ gui_poll(unsigned char k, unsigned x, unsigned char y, unsigned char down)
 {
@@ -1082,11 +921,6 @@ unsigned char __fastcall__ gui_poll(unsigned char k, unsigned x, unsigned char y
     was_down = down;
     if (!gui_on)
         return k;
-    if (about) {
-        if (click || k)
-            close_all();
-        return 0;
-    }
     if (menu != 0xFF) {
         m = 0xFF;                       /* the item under the pointer */
         if (x > title_x[menu] && x < m_right && y >= 14 && y < m_bot - 1)
@@ -1111,9 +945,6 @@ unsigned char __fastcall__ gui_poll(unsigned char k, unsigned x, unsigned char y
             return 0;
         }
         switch (items[m].act) {
-        case A_ABOUT:
-            about_box();
-            return 0;
         case A_LOGOFF:
             if (!on_title)              /* not jacked in yet: nothing to leave */
                 key_queue = logoff_keys;
@@ -1134,7 +965,7 @@ unsigned char __fastcall__ gui_poll(unsigned char k, unsigned x, unsigned char y
     if (!click || y >= 12)
         return k;
 title:
-    for (m = 0; m < 3; ++m)
+    for (m = 0; m < 2; ++m)
         if (x >= title_x[m] && x < title_x[m + 1]) {
             open_menu(m);
             break;
