@@ -940,10 +940,13 @@ make geos-atr GEOS_ATARI=../../geos-atari                  # the two disks below
   (`dir2atr -a -b MyPicoDos406`), which loads at high speed when the FujiNet's HSIO index is set (its web page; on a
   real Atari no hardware change is needed) and at 19200 when it isn't. Timed in atari800 with FujiNet-PC over
   NetSIO: 58 s with PicoBoot at 19200, 62 s with MyPicoDos at 19200, 27 s at index 8 (57,600 baud), 15 s at index 3
-  (87,361); index 0 (124,017) stalls. After it, FujiNet is at the high speed and GEOS's disk driver and the game's
-  SIO at 19200: on a real Atari the first command frame at 19200 is garbled, FujiNet switches back, and both resend
-  it (GEOS's driver tries 4 times, `net_sio.s` resends an unacknowledged frame); NetSIO passes bytes as messages, so
-  atari800 never sees the mismatch. It then
+  (87,361); index 0 (124,017) stalls. GEOS's disk driver reads D2: at the high speed too: it asks the drive for it
+  (`?`) at 19200, as MyPicoDos does, then uses it, so the game loads in 4.3 s, not 13.4 s, at index 3 (a drive that
+  doesn't answer `?` stays at 19200). The game's SIO stays at 19200: FujiNet is still at the high speed when it
+  starts, so on a real Atari its first command frames are garbled until FujiNet switches back after two of them
+  (`net_sio.s` sends a frame with no ACK up to 13 times); the next time GEOS reads the disk, its driver gets no
+  answer at the high speed, tries 19200 and asks `?` again. NetSIO passes bytes as messages, so atari800 never sees
+  a mismatch: that part is for a real Atari to show. GEOS then
   reads `syn-ack-wire-geos.atr` in D2:, a 180K GEOS disk (geos-atari's `tools/mkramdisk.py`) with geos-atari's file
   selector as its DESK TOP: GEOS's file dialog lists the applications, SYN-ACK WIRE among them. Esc on the title,
   then Y, goes back to it. GEOS's disk driver and the game's SIO take turns on the bus: GEOS reads the disk only

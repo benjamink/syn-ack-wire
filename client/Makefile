@@ -624,7 +624,8 @@ geos: $(GEOS)/synack.cvt
 # The disks, from a geos-atari checkout (GEOS_ATARI) and its SIO build for D2: (make -C $(GEOS_ATARI)
 # DRIVE=siodrv_atari SIO_UNIT=2). syn-ack-wire-geos-boot.atr boots that GEOS in D1: with MyPicoDos 4.06 in autorun
 # mode, which loads it at high speed when the FujiNet's HSIO index is set (58 s at 19200, 27 s at index 8, 15 s at
-# index 3 in atari800), and at 19200 when it isn't (62 s: a few more reads than PicoBoot's);
+# index 3 in atari800), and at 19200 when it isn't (62 s: a few more reads than PicoBoot's); geos-atari's disk
+# driver then reads D2: at that speed too (the game loads in 4.3 s at index 3, 13.4 s at 19200);
 # syn-ack-wire-geos.atr, in D2:, is a 180K GEOS disk (geos-atari's tools/mkramdisk.py) with geos-atari's file
 # selector as its DESK TOP, which opens GEOS's file dialog on the applications: this one.
 GEOS_ATARI ?= ../../geos-atari
@@ -632,7 +633,7 @@ GEOSXEX = $(GEOS_ATARI)/build/atari_130_sio_d2/GEOS_ATARI_130XE_SIO.XEX
 GEOSDESK = $(GEOS_ATARI)/ramdisk/cvt-128k/filesel-as-DESK TOP.cvt
 $(GEOS)/syn-ack-wire-geos.atr: $(GEOS)/synack.cvt
 	python3 $(GEOS_ATARI)/tools/mkramdisk.py --atr 717 -o $@ "$(GEOSDESK)" $< >/dev/null
-$(GEOS)/syn-ack-wire-geos-boot.atr: Makefile | $(GEOS)
+$(GEOS)/syn-ack-wire-geos-boot.atr: Makefile $(wildcard $(GEOSXEX)) | $(GEOS)
 	@test -f $(GEOSXEX) || { echo "no $(GEOSXEX): make -C $(GEOS_ATARI) DRIVE=siodrv_atari SIO_UNIT=2"; exit 1; }
 	rm -rf $(GEOS)/boot && mkdir $(GEOS)/boot
 	cp $(GEOSXEX) $(GEOS)/boot/GEOS.XEX
