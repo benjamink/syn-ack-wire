@@ -11,6 +11,7 @@
 #       bytes, a set bit black)
 #   BOOT=build/geos/syn-ack-wire-geos-boot.atr tools/run-geos.sh ...
 #                       boot GEOS from that disk in D1:, as a player does, instead of -run
+#   HELPCVT=file        the help file put on the disk too (default build/geos/synack-help.cvt, if made; empty: none)
 #   GEOS_ATARI=dir      the geos-atari checkout (default ../../geos-atari): its build/atari_130_sio_d2 GEOS
 #                       (make -C $GEOS_ATARI DRIVE=siodrv_atari SIO_UNIT=2)
 #   FUJINET_DIR=dir     an Atari FujiNet-PC; INSTANCE=n its ports: NetSIO 9997+n, web 8000+n (default 7)
@@ -47,7 +48,9 @@ d = bytearray(open(sys.argv[1], "rb").read())
 d[3:19] = b"DESK TOP".ljust(16, b"\xa0")
 open(sys.argv[2], "wb").write(d)
 EOF
-python3 "$GEOS_ATARI/tools/mkramdisk.py" --atr 717 -o "$WORK/sd/geos.atr" "$WORK/cvt/desktop.cvt" > "$WORK/mkdisk.log"
+HELPCVT=${HELPCVT-$CLIENT/build/geos/synack-help.cvt}
+[ -f "$HELPCVT" ] || HELPCVT=
+python3 "$GEOS_ATARI/tools/mkramdisk.py" --atr 717 -o "$WORK/sd/geos.atr" "$WORK/cvt/desktop.cvt" $HELPCVT > "$WORK/mkdisk.log"
 
 awk -v netsio=$NETSIO '/^\[/ { skip = /^\[Mount[0-9]+\]/; boip = /^\[BOIP\]/ }
      /^configenabled=/ { $0 = "configenabled=0" }

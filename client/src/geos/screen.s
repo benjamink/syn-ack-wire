@@ -16,9 +16,12 @@
 ; back on (GEOS's DMACTL, geos-atari kernal/hw/hw1b.s) in a vertical blank. A frame goes blank.
 ;
 ; void screen_init(void)  the font; IRQs masked
+; void __fastcall__ help_draw(const unsigned char *page)
+;       an instruction page (help.c), 24 rows of 40 screen codes, onto GEOS's screen from line
+;       PAGE_Y: a cell a byte across and 8 lines down, bit 7 inverse, as the Atari shows it
 
-        .export _font, _screen_init
-        .importzp ptr1, ptr2
+        .export _font, _screen_init, _help_draw
+        .importzp ptr1, ptr2, ptr3, ptr4, tmp1, tmp2, tmp3, tmp4
 
 PORTB   = $D301         ; bit 0: OS ROM in; bit 7: self-test ROM out
 NMIEN   = $D40E
@@ -69,6 +72,87 @@ _screen_init:
         lda #$40
         sta NMIEN
         rts                     ; IRQs stay masked
+
+BITMAP  = $A038         ; GEOS's screen, 40 bytes a line
+PAGE_Y  = 4             ; 192 lines of page, 4 above and below
+
+_help_draw:
+        sta ptr1                ; the page
+        stx ptr1+1
+        lda #<(BITMAP + PAGE_Y * 40)
+        sta ptr2                ; the row's first line
+        lda #>(BITMAP + PAGE_Y * 40)
+        sta ptr2+1
+        lda #24
+        sta tmp3                ; rows left
+@row:   ldy #0
+@cell:  sty tmp4                ; the column
+        lda (ptr1),y
+        tax
+        and #$7F                ; the glyph: _font + 8 * code
+        sta ptr3
+        lda #0
+        asl ptr3
+        rol a
+        asl ptr3
+        rol a
+        asl ptr3
+        rol a
+        adc #>_font             ; (C = 0: the rol took a 0)
+        sta ptr3+1
+        lda ptr3
+        adc #<_font
+        sta ptr3
+        bcc :+
+        inc ptr3+1
+:       txa
+        and #$80                ; inverse: every line the other way round
+        beq :+
+        lda #$FF
+:       sta tmp1
+        lda ptr2                ; the cell's first line
+        clc
+        adc tmp4
+        sta ptr4
+        lda ptr2+1
+        adc #0
+        sta ptr4+1
+        ldy #0
+@line:  lda (ptr3),y
+        eor tmp1
+        sty tmp2
+        ldy #0
+        sta (ptr4),y
+        lda ptr4
+        clc
+        adc #40
+        sta ptr4
+        bcc :+
+        inc ptr4+1
+:       ldy tmp2
+        iny
+        cpy #8
+        bne @line
+        ldy tmp4
+        iny
+        cpy #40
+        bne @cell
+        lda ptr1                ; the next row: 40 codes on, 8 lines down
+        clc
+        adc #40
+        sta ptr1
+        bcc :+
+        inc ptr1+1
+:       lda ptr2
+        clc
+        adc #<320
+        sta ptr2
+        lda ptr2+1
+        adc #>320
+        sta ptr2+1
+        dec tmp3
+        bne @row
+        rts
 
 vblank: lda VCOUNT
         cmp #VBLANK

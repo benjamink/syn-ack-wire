@@ -593,10 +593,15 @@ intv-auto:
 # (src/geos/memset.s): geos-cbm.lib's is GEOS's FillRam, whose arguments differ.
 GEOS    = build/geos
 GEOSFLAGS = -t geos-cbm -O -Or -Cl -DDISPLAY_IDLE=1 -DFANCY_TITLE=1 -DFANCY_PLAYFIELD=1 -DLOG_HISTORY=16 \
-            -DQUIT_TO_OS=1 -DQUIT_ASK='"QUIT TO GEOS? Y/N"'
+            -DQUIT_TO_OS=1 -DQUIT_ASK='"QUIT TO GEOS? Y/N"' -DHELP_CLASS='"$(GEOSHELPCLASS)"'
 GEOSOBJ = $(addprefix $(GEOS)/,header.o main.o game.o proto.o display_gui.o draw.o sig.o input.o screen.o \
-          frame.o net_sio.o sound.o ring.o memset.o)
+          frame.o net_sio.o sound.o ring.o memset.o help.o)
 GEOSNAME = $(shell sed -n 's/^\#define TH_TITLE "\(.*\)"/\1/p' src/common/theme_tab.h)
+# The instruction pages, as a GEOS file on the GEOS disk (tools/help_geos.py): the Atari's pages, its QR code's
+# URL. The game finds the file by its class (at most 12 characters), so the name (16) is only what the DeskTop shows.
+GEOSHELP ?= $(HELP)
+GEOSHELPNAME ?= $(GEOSNAME) ?
+GEOSHELPCLASS = $(word 1,$(GEOSNAME)) HELP
 
 $(GEOS):
 	mkdir -p $@
@@ -627,12 +632,15 @@ geos: $(GEOS)/synack.cvt
 # index 3 in atari800), and at 19200 when it isn't (62 s: a few more reads than PicoBoot's); geos-atari's disk
 # driver then reads D2: at that speed too (the game loads in 4.3 s at index 3, 13.4 s at 19200);
 # syn-ack-wire-geos.atr, in D2:, is a 180K GEOS disk (geos-atari's tools/mkramdisk.py) with geos-atari's file
-# selector as its DESK TOP, which opens GEOS's file dialog on the applications: this one.
+# selector as its DESK TOP, which opens GEOS's file dialog on the applications: this one; and the help file.
 GEOS_ATARI ?= ../../geos-atari
 GEOSXEX = $(GEOS_ATARI)/build/atari_130_sio_d2/GEOS_ATARI_130XE_SIO.XEX
 GEOSDESK = $(GEOS_ATARI)/ramdisk/cvt-128k/filesel-as-DESK TOP.cvt
-$(GEOS)/syn-ack-wire-geos.atr: $(GEOS)/synack.cvt
-	python3 $(GEOS_ATARI)/tools/mkramdisk.py --atr 717 -o $@ "$(GEOSDESK)" $< >/dev/null
+$(GEOS)/synack-help.cvt: $(GEOSHELP) tools/help_geos.py tools/help_disk.py tools/qr.py Makefile | $(GEOS)
+	python3 tools/help_geos.py --qr "$(QR_URL)" -o $@ --name "$(GEOSHELPNAME)" --class "$(GEOSHELPCLASS)" \
+	    --parent "$(GEOSNAME)" --info "The instructions for $(GEOSNAME): ? on its title screen." $(GEOSHELP) >/dev/null
+$(GEOS)/syn-ack-wire-geos.atr: $(GEOS)/synack.cvt $(GEOS)/synack-help.cvt
+	python3 $(GEOS_ATARI)/tools/mkramdisk.py --atr 717 -o $@ "$(GEOSDESK)" $^ >/dev/null
 $(GEOS)/syn-ack-wire-geos-boot.atr: Makefile $(wildcard $(GEOSXEX)) | $(GEOS)
 	@test -f $(GEOSXEX) || { echo "no $(GEOSXEX): make -C $(GEOS_ATARI) DRIVE=siodrv_atari SIO_UNIT=2"; exit 1; }
 	rm -rf $(GEOS)/boot && mkdir $(GEOS)/boot

@@ -89,6 +89,7 @@ The 8-bit side. The server enforces every rule; the client draws what it is told
 | `tools/xroar_dump.py` | Saves the CoCo autoplay build's screens from xroar through its GDB port |
 | `tools/render_coco.py` | Draws a CoCo screen dump (6144 bytes of PMODE 4, or `pc-coco`'s 960 cells, a title's logo with its static) as the screen looks |
 | `tools/run-nes.sh`, `nes.lua` | Runs the NES image in MAME (`-nes_slot fujinet`) with FujiNet-PC: the pad on a schedule or a pad bot, the screen as text, snapshots, the autoplay build's dumps |
+| `tools/help_geos.py` | Makes the GEOS client's help file (`synack-help.cvt`): the Atari's pages, checked and converted by `help_disk.py`, as a GEOS VLIR file, a page a record |
 | `tools/help_nes.py` | Checks the NES instruction pages and packs them for the ROM (`help_pages.h`), the QR code in quarter-block tiles |
 | `tools/render_nes.py` | Draws an NES dump (`pc-nes`'s or the autoplay build's) or an instruction page as the screen looks, or as text |
 | `tools/run-adam.sh` | Runs the Adam image in adamcore (FujiNet Go Adam's core) or ADAMEm, booted from FujiNet-PC on BoIP: keys and the controller on a schedule, pictures |
@@ -105,6 +106,7 @@ The 8-bit side. The server enforces every rule; the client draws what it is told
 | `src/geos/input.c` | GEOS on the Atari: keys from GEOS's keyboard queue, the pointer for the menus, OPTION and SELECT from CONSOL, `ticks()`, quitting to the DeskTop |
 | `src/geos/draw.s` | GEOS on the Atari: `display_gui.c`'s drawing helpers in assembly (areas, panels, text put together and drawn, numbers), and the tables of a screen's fixed panels and labels |
 | `src/geos/sig.s` | GEOS on the Atari: what the places drawn often show, as 16-bit signatures, so they're drawn again only when that changes |
+| `src/geos/help.c` | GEOS on the Atari: the instruction pages from the title, a GEOS file on the disk found by its class, a page a record |
 | `src/geos/memset.s`, `ring.s` | GEOS on the Atari: a `memset` in place of geos-cbm.lib's (see below); `rx_ring` at $0400 |
 | `tools/run-geos-disks.sh` | Plays the GEOS client as a player would: atari800 (PAL 130XE) boots `make geos-atr`'s two disks from FujiNet-PC, GEOS in D1:, the GEOS disk in D2:, joystick on for the pointer |
 | `tools/run-geos.sh` | Runs the GEOS client under geos-atari on atari800 (PAL 130XE) with FujiNet-PC: the GEOS disk in D2:, GEOS from `-run` or the boot disk, the autoplay build's dumps |
@@ -962,6 +964,18 @@ make geos-atr GEOS_ATARI=../../geos-atari                  # the two disks below
   space), OPTION and the move hints, SELECT and the sound (SELECT redraws it: nothing else shows it), in GEOS's
   system font; and the playfield's bar along the bottom for what to do (TYPE A HANDLE, THEN RETURN, the refusals,
   QUIT TO GEOS? Y/N, DIALING...). The menu works here too; Log off is idle and Quit asks nothing more. No static or colour.
+- **The instructions,** from the title for now: **?** or HELP (geos-atari's keyboard gives HELP as GEOS's pound
+  sign). They are the Atari's pages (`help/atari/screen/`, `GEOSHELP` in the Makefile), as one GEOS file on the GEOS
+  disk, `SYN-ACK WIRE ?` (`GEOSHELPNAME`; GEOS names are at most 16 characters and there are no folders):
+  `tools/help_geos.py` makes it, a VLIR file of type APPL_DATA, a page a record (960 screen codes), with its own
+  icon, the class `SYN-ACK HELP` and the game as its parent. `help.c` finds it by its class (`FindFTypes`), so a
+  renamed file still works, and reads a page with `ReadRecord`; `screen.s` draws it in the Atari's ROM font, a cell
+  a byte across, so a page looks as it does on the Atari, inverse, box drawing and QR code included. **>** or **\***
+  (with CTRL too) the next page, **<** or **+** the one before, Esc, Return, HELP or ? back; a click on the left
+  third goes back a page, the right third on, between them back to the title. Meanwhile nothing else draws
+  (`display_gui.c` holds it, as for its menu) and the loop goes on reading the network; closing draws the title
+  again. The last page read stays (960 bytes), so they open where they were left. With no help file: NO HELP FILE
+  ON THIS DISK. Mid-game pages could draw the game into GEOS's background screen ($6000, unused) meanwhile; not yet.
 - **The playfield:**
   - y 0-12, the menu bar: **file** (Log off, Quit to DeskTop), and the region and link on the right. No **geos**
     menu or About box, and no **options** menu: move hints and sound are on the title screen and OPTION and
@@ -1066,8 +1080,9 @@ make geos-atr GEOS_ATARI=../../geos-atari                  # the two disks below
 | `snow.s` | 74 | + 48 rodata (masks), 3 bss: the title's static, also from the deferred VBI |
 | `dli.s` | 133 | the color bands' DLI handler and its display list switch (117 before the title's purple) |
 | **geos** (2026-11-03, cc65 `geos-cbm`) | | |
-| `synack.cvt` | 16488 | whole GEOS file (header and directory entry included); loads at $0500, 3.6K bss to $51AD (16345 before the bar was plain while nothing asks, 17185 with the options menu, 17801 with the helpers in C, 18345 with the About box, 18133 with the Atari's text title, 12138 with the text playfield too) |
-| `display_gui.c` | 5912 | the title and the playfield, the menu about 0.6K of it: + 1243 rodata (364 of title art; the fixed panels and labels), 1359 bss (the Atari font as a GEOS font, 714; what the menu covers, 481; the bar's two lines) |
+| `synack.cvt` | 17270 | whole GEOS file (header and directory entry included); loads at $0500, 4.6K bss to $5895 (16488 before the instruction pages, 16345 before the bar was plain while nothing asks, 17185 with the options menu, 17801 with the helpers in C, 18345 with the About box, 18133 with the Atari's text title, 12138 with the text playfield too) |
+| `display_gui.c` | 6076 | the title and the playfield, the menu about 0.6K of it: + 1243 rodata (364 of title art; the fixed panels and labels), 1359 bss (the Atari font as a GEOS font, 714; what the menu covers, 481; the bar's two lines) |
+| `help.c` | 408 | + 49 rodata, 984 bss (a page, 960): the instruction pages, read with GEOS's file calls (about 70 bytes of geos-cbm.lib's); `screen.s` draws them (125) |
 | `draw.s` | 1082 | + 65 bss (`buf`, the pen): the drawing helpers (1,668 less in `display_gui.c`) and the fixed parts' tables' loops |
 | `sig.s` | 109 | + 35 bss: the places' signatures |
 | `screen.s` | 83 | + 1K bss, the ROM's font, copied with ANTIC's DMA off (24 of it; 384 when it drew the text title too) |

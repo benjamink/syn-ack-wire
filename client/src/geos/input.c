@@ -4,8 +4,9 @@
  * left arrow, Shift-Delete as backspace, and OPTION held with a key sets its
  * bit 7 (the shortcut key, C= on a C64). OPTION and SELECT on their own are read
  * from CONSOL once a frame, as on the Atari: OPTION flips the move hints,
- * SELECT the sound. The ticks are frame.s's. There are no instruction pages
- * yet, so nothing returns K_HELP.
+ * SELECT the sound. The ticks are frame.s's. On the title, ? and HELP (GEOS's pound
+ * sign) open the instruction pages (help.c); CTRL+* (GEOS's right arrow) comes as *, the
+ * pages' next, as CTRL++ (its left, which is its backspace) comes as Delete.
  *
  * The game loops call in_key() on every pass. It is where the keyboard's IRQ
  * may come in: the program runs with IRQs masked (screen.s says why), and a
@@ -26,6 +27,8 @@
 #define G_LARROW    20                  /* geos-atari: Esc */
 #define G_UP        16                  /* geos-atari: CTRL+- and CTRL+=, the arrows */
 #define G_DOWN      17
+#define G_RIGHT     30
+#define G_HELP      24                  /* geos-atari: HELP, as GEOS's pound sign */
 
 char GetNextChar(void);                 /* geos-cbm.lib */
 void MouseUp(void);
@@ -38,6 +41,7 @@ unsigned char __fastcall__ gui_poll(unsigned char k, unsigned x, unsigned char y
 void frame_done(void);                  /* frame.s */
 extern volatile unsigned char geos_tick;
 
+extern unsigned char on_title;          /* display_gui.c */
 static unsigned char k, frame, held, pressed;
 const unsigned char *key_queue;         /* display_gui.c's menu: keys for the game, one a call */
 
@@ -58,6 +62,12 @@ static unsigned char key(void)
         return K_UP;
     case G_DOWN:
         return K_DOWN;
+    case G_RIGHT:
+        return '*';
+    case G_HELP:
+    case '?':
+        if (on_title)
+            return K_HELP;
     }
     return k >= ' ' && k < 0x60 ? k : 0;    /* not GEOS's control codes: F1 is 1 */
 }
@@ -105,15 +115,4 @@ void platform_quit(void)
     MouseUp();
     __asm__ ("cli");                    /* the DeskTop's keyboard */
     EnterDeskTop();
-}
-
-/* The instruction pages, should a key ever ask for them: none on this disk yet. */
-void help_open(void)
-{
-}
-
-unsigned char __fastcall__ help_key(unsigned char c)
-{
-    (void)c;
-    return 0;
 }

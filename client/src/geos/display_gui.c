@@ -70,7 +70,8 @@ void screen_init(void);                 /* screen.s: the font, IRQs masked */
 #define T_VAL   96                      /* what they say */
 
 unsigned char romfont[8 + 2 * 97 + 8 * 64];   /* (draw.s draws with it) */
-static unsigned char gui_ready, gui_on, on_title;
+static unsigned char gui_ready, gui_on;
+unsigned char on_title;                 /* input.c: the pages open from it */
 static unsigned char hold, missed;     /* a menu is open: drawing waits; something did */
 static unsigned char menu = 0xFF, item = 0xFF, was_down;   /* the menu's open (0), its item */
 static unsigned char i, j, n, v;
@@ -162,6 +163,7 @@ unsigned char __fastcall__ fresh_buf(unsigned char place);
 
 /* what a menu kept from being drawn */
 static unsigned char missed_node[(NODES + 7) / 8], missed_seat, missed_more;
+extern unsigned char helping;           /* help.c */
 #define M_LOG   1
 #define M_LINK  2
 
@@ -823,6 +825,16 @@ static void take(void)
     repaint();
 }
 
+/* The instruction pages (help.c) cover the screen: drawing waits until they close, then the
+ * screen is drawn again, all of it. */
+void __fastcall__ gui_cover(unsigned char on)
+{
+    if (on)
+        hold = 1;
+    else
+        take();
+}
+
 void display_title_screen(void)
 {
     if (!gui_ready)
@@ -914,6 +926,8 @@ unsigned char __fastcall__ gui_poll(unsigned char k, unsigned x, unsigned char y
     was_down = down;
     if (!gui_on)
         return k;
+    if (helping)                        /* the pages: left third back, right third on */
+        return click ? (x < 107 ? '<' : x >= 213 ? '>' : K_ESC) : k;
     if (menu != 0xFF) {
         m = 0xFF;                       /* the item under the pointer */
         if (x && x < M_RIGHT && y >= 14 && y < M_BOT - 1)

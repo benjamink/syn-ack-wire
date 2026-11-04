@@ -23,8 +23,9 @@ static unsigned elapsed;
 #endif
 static const char name[] = AUTO_HANDLE "\r";
 /* first, the help pages: open, page to the end (extra presses are ignored), back one, leave */
-#ifdef __GEOS__
-static const unsigned char paging[] = { 0 };    /* none on GEOS yet */
+#ifdef __GEOS__     /* 11 pages, one press past the last; OPTION twice: dumps of the title drawn again */
+static const unsigned char paging[] = { K_HELP, '>', '>', '>', '>', '>', '>', '>', '>', '>', '>', '>', '<',
+                                        K_ESC, K_OPTION, K_OPTION, 0 };
 #else
 static const unsigned char paging[] = { K_HELP, '>', '>', '>', '>', '>', '>', '>', '>', '<', K_ESC, 0 };
 #endif
