@@ -275,6 +275,21 @@ static void play(void)
             game_toggle_hints();
             c = 0;
         }
+#if LOG_HISTORY
+        if (c == K_UP || c == K_DOWN) { /* back through the log, and forward */
+            if (c == K_DOWN) {
+                if (log_back)
+                    --log_back;
+            } else if (log_back + 1 < log_count) {
+                ++log_back;
+            }
+            display_log_view();
+            c = 0;
+        } else if (c && log_back) {     /* any other key: the newest lines again */
+            log_back = 0;
+            display_log_view();
+        }
+#endif
         if (leaving && c) {             /* the Y/N after Esc: Y leaves, any other key stays */
             if (c == 'Y') {
                 log_off();

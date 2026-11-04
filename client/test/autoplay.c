@@ -31,16 +31,41 @@ static const unsigned char paging[] = { K_HELP, '>', '>', '>', '>', '>', '>', '>
 
 #ifdef __GEOS__
 /* GEOS sends a BRK to BRKVector (its Panic) once atari800's monitor lets it go on: point that at PHP, RTI,
- * which goes back after the BRK with IRQs off, so CLI. The screen is drawn first (src/geos/screen.s). */
-void screen_flush(void);
+ * which goes back after the BRK with IRQs off, as the program runs (src/geos/screen.s). */
 static const unsigned char brk_back[] = { 0x08, 0x40 };
 #define BRKVector (*(const void **)0x84AF)
-#define DUMP() do { screen_flush(); BRKVector = brk_back; __asm__ ("brk"); __asm__ ("nop"); __asm__ ("cli"); } while (0)
+#define DUMP() do { BRKVector = brk_back; __asm__ ("brk"); __asm__ ("nop"); } while (0)
+/* The menus, once, part-way into the first game: the pointer's moves and button (x, y, down,
+ * dump after), given to display_gui.c as in_key() would. Options: Move hints highlighted, then
+ * chosen; geos: About, shown, then closed; file opened and closed; then file, Quit to DeskTop,
+ * which logs off, quits from the title, and (on run-geos.sh's disk, where it is the DeskTop) starts again. */
+unsigned char __fastcall__ gui_poll(unsigned char k, unsigned x, unsigned char y, unsigned char down);
+static const unsigned char clicks[][4] = {
+    { 70, 5, 1, 0 }, { 70, 5, 0, 0 }, { 80, 18, 0, 1 }, { 80, 18, 1, 0 }, { 80, 18, 0, 0 },
+    { 70, 5, 1, 0 }, { 70, 5, 0, 1 }, { 150, 150, 1, 0 }, { 150, 150, 0, 0 },
+    { 10, 5, 1, 0 }, { 10, 5, 0, 0 }, { 20, 18, 1, 0 }, { 20, 18, 0, 1 }, { 150, 150, 1, 0 }, { 150, 150, 0, 0 },
+    { 40, 5, 1, 0 }, { 40, 5, 0, 1 }, { 200, 150, 1, 0 }, { 200, 150, 0, 1 },
+#define QUIT_AT 19                          /* the log's history first: up three, a dump each, down one */
+    { 40, 5, 1, 0 }, { 40, 5, 0, 0 }, { 60, 28, 1, 0 }, { 60, 28, 0, 0 },   /* Quit to DeskTop */
+};
+static unsigned char clicked;
+extern const unsigned char *key_queue;      /* src/geos/input.c */
+#define SCROLL_NOW (clicked == QUIT_AT)
 #elif defined(__CC65__) && !defined(__NES__)
 #define DUMP() do { __asm__ ("brk"); __asm__ ("nop"); } while (0)
 #else
 void pc_dump(void);                         /* test/pc_harness.c, test/nes_dump.c */
 #define DUMP() pc_dump()
+#endif
+
+#if defined(__GEOS__) || defined(AUTO_SCROLL)
+/* The log's history (LOG_HISTORY), once: up three lines, a dump after each, then down one.
+ * On by itself on GEOS; elsewhere -DAUTO_SCROLL (not in the captures' builds). */
+#ifndef SCROLL_NOW
+#define SCROLL_NOW (turn != NONE)                   /* in a game */
+#endif
+static const unsigned char scroll[] = { K_UP, K_UP, K_UP, K_DOWN, 0 };
+static unsigned char dumps, scrolled, dump_next;
 #endif
 
 static unsigned char rnd(void)
@@ -60,11 +85,36 @@ unsigned char auto_key(void)
         elapsed = 0;
         shown = pr_kind;
         DUMP();
+#if defined(__GEOS__) || defined(AUTO_SCROLL)
+        ++dumps;
+#endif
     }
+#ifdef __GEOS__
+    if (key_queue)
+        return in_key();                            /* a menu's keys (Quit's) go to the game */
+#endif
     in_key();
     if ((unsigned char)(t - last) < KEY_TICKS)
         return 0;
     last = t;
+#if defined(__GEOS__) || defined(AUTO_SCROLL)
+    if (dump_next) {                                /* after a key's effect */
+        dump_next = 0;
+        DUMP();
+    }
+    if (dumps > 8 && SCROLL_NOW && scroll[scrolled]) {
+        dump_next = 1;
+        return scroll[scrolled++];
+    }
+#endif
+#ifdef __GEOS__
+    if (dumps > 8 && clicked < sizeof clicks / sizeof clicks[0]) {
+        r = gui_poll(0, clicks[clicked][0], clicks[clicked][1], clicks[clicked][2]);
+        if (clicks[clicked++][3])
+            DUMP();
+        return r;
+    }
+#endif
     if (paging[paged]) {                            /* a dump before each key shows each page */
         if (DUMP_TICKS)
             DUMP();

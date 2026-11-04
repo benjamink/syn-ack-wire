@@ -29,6 +29,24 @@ unsigned char link_up;
 unsigned char status[30], refused;
 
 unsigned char pr_kind, pr[18];
+#if LOG_HISTORY
+static unsigned char log_hist[LOG_HISTORY * 40];
+static unsigned char *log_at = log_hist;   /* the newest line */
+unsigned char log_count, log_back;
+
+const unsigned char *log_line(unsigned char n)
+{
+    unsigned char *p = log_at;
+    if (n >= log_count)
+        return 0;
+    while (n--) {
+        if (p == log_hist)
+            p += LOG_HISTORY * 40;
+        p -= 40;
+    }
+    return p;
+}
+#endif
 unsigned char step, edit[9], edit_len;
 const char *complaint;
 
@@ -216,6 +234,21 @@ void game_frame(void)
         display_clock(pr[0]);
         break;
     case 'l':
+#if LOG_HISTORY
+        log_at += 40;
+        if (log_at == log_hist + LOG_HISTORY * 40)
+            log_at = log_hist;
+        if (log_count < LOG_HISTORY)
+            ++log_count;
+        n = msg[1] > 39 ? 39 : msg[1];
+        *log_at = n;
+        memcpy(log_at + 1, msg + 2, n);
+        if (log_back) {                 /* scrolled back: the newest again */
+            log_back = 0;
+            display_log_view();
+            break;
+        }
+#endif
         display_log();
         break;
     case 'e':

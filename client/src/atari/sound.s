@@ -21,6 +21,7 @@
         .export _snd_init, _play_chord, _snd_toggle
 .ifdef __GEOS__
         .export snd_vbi         ; src/geos/frame.s calls it once a frame
+        .export _snd_on         ; src/geos/display_gui.c's options menu shows it
         .import frame_init
 .endif
 

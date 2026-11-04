@@ -34,6 +34,8 @@ unsigned char __fastcall__ net_appkey(unsigned char key);
 #define K_OPTION 0x01                   /* toggles move hints (Atari: the OPTION key) */
 #define K_HELP   0x02                   /* instructions (Atari: the HELP key, XL/XE) */
 #define K_ESC    0x1B
+#define K_UP     0x0B                   /* back through the log (LOG_HISTORY); the Apple IIe's arrows */
+#define K_DOWN   0x0A                   /* send these, as CTRL+K and CTRL+J do on a II+ */
 unsigned char in_key(void);             /* next key as uppercase ASCII, or 0 if none */
 unsigned char ticks(void);              /* free-running 8-bit frame counter */
 unsigned char ticks_per_sec(void);      /* how fast it runs: 60 a second, 50 on a PAL machine */

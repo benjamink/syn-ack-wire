@@ -45,6 +45,13 @@ extern const char *complaint;
 /* main.c: Esc asked whether to log off; the prompt line shows the Y/N instead */
 extern unsigned char leaving;
 
+#if LOG_HISTORY
+/* the log's last LOG_HISTORY lines, each a length and up to 39 characters; how many
+ * are kept so far, and how far back the screen is showing (0: the newest) */
+extern unsigned char log_count, log_back;
+const unsigned char *log_line(unsigned char n);  /* n back from the newest, or 0 if none */
+#endif
+
 void game_frame(void);                  /* apply the frame in msg[] */
 void game_key(unsigned char c);         /* a key while a prompt is open */
 void game_clear_prompt(void);           /* answered, or the clock ran out */

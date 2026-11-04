@@ -131,10 +131,13 @@ def gen_tex(t):
 
 # ---------------------------------------------------------------- C (8-bit client)
 
-def wire(s):
-    """Client text: uppercase ASCII $20-$5F, the currency sign as $5C, as a C string literal."""
-    s = str(s).upper().replace("¥", "\\")
-    bad = [ch for ch in s if not 0x20 <= ord(ch) <= 0x5F]
+def wire(s, upper=True):
+    """Client text: uppercase ASCII $20-$5F, the currency sign as $5C, as a C string literal.
+    upper=False keeps lowercase ($60-$7E too), for a screen that has it (geos)."""
+    s = str(s).replace("¥", "\\")
+    if upper:
+        s = s.upper()
+    bad = [ch for ch in s if not 0x20 <= ord(ch) <= (0x5F if upper else 0x7E)]
     if bad:
         sys.exit(f"theme.toml: {s!r} has characters the client can't show: {bad}")
     return '"' + s.replace("\\", "\\\\").replace('"', '\\"') + '"'
@@ -162,6 +165,7 @@ def gen_c(t):
         s = v["s"]
         L.append(f"#define T_{cname(k)} {wire(s)}")
         L.append(f"#define T_{cname(k)}_P {wire(v.get('p', s + 's'))}")
+        L.append(f"#define TM_{cname(k)} {wire(cap(s), upper=False)}")   # mixed case (geos menus)
     L += ["", f"#define NSYN {len(syns)}",
           f"#define SYN_LETTERS {wire(''.join(s['letter'] for s in syns))}",
           "#define SYN_NAMES { /* for the screen: `screen`, else `name` */ \\"]
@@ -170,6 +174,9 @@ def gen_c(t):
     L += ["}", "#define SYN_SHORTS { /* `short`, for a narrow screen's hive panel (nes) */ \\"]
     for s in syns:
         L.append(f"    {wire(s['short'])}, \\")
+    L += ["}", "#define SYN_MIXED { /* `screen`, else `name`, in mixed case (geos) */ \\"]
+    for s in syns:
+        L.append(f"    {wire(s.get('screen', s['name']), upper=False)}, \\")
     L += ["}", "", "#endif", ""]
     return "\n".join(L)
 

@@ -51,10 +51,10 @@
 #define REPEAT_FIRST 20                 /* frames a direction is held before it repeats */
 #define REPEAT_NEXT  6
 
-#define K_UP     0xA0                   /* the Adam's keyboard */
-#define K_RIGHT  0xA1
-#define K_DOWN   0xA2
-#define K_LEFT   0xA3
+#define AK_UP    0xA0                   /* the Adam's keyboard */
+#define AK_RIGHT 0xA1
+#define AK_DOWN  0xA2
+#define AK_LEFT  0xA3
 #define K_SMART1 0x81
 #define K_SMART2 0x82
 #define K_SMART3 0x83
@@ -383,10 +383,10 @@ unsigned char in_key(void)
 {
     if (typed()) {
         switch (k) {                    /* the arrows: as the stick */
-        case K_UP:    ev = P_UP;    break;
-        case K_DOWN:  ev = P_DOWN;  break;
-        case K_LEFT:  ev = P_LEFT;  break;
-        case K_RIGHT: ev = P_RIGHT; break;
+        case AK_UP:   ev = P_UP;    break;
+        case AK_DOWN: ev = P_DOWN;  break;
+        case AK_LEFT: ev = P_LEFT;  break;
+        case AK_RIGHT: ev = P_RIGHT; break;
         default:
             return key();
         }

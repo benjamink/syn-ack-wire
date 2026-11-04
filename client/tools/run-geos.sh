@@ -7,8 +7,8 @@
 #   tools/run-geos.sh [build/geos/synack.cvt]               emulator window (that .cvt if none is given)
 #   HEADLESS=1 tools/run-geos.sh build/geos/synack-auto.cvt  no window, no sound
 #   DUMPDIR=/tmp/g tools/run-geos.sh build/geos/synack-auto.cvt
-#       headless; every BRK the autoplay build executes saves its text copy (DUMPDIR/scrNNN.bin, 960 bytes of
-#       Atari screen codes: tools/screen2txt.py) and the bitmap (DUMPDIR/bmpNNN.bin, 24 rows of 320 lines)
+#       headless; every BRK the autoplay build executes saves the bitmap (DUMPDIR/bmpNNN.bin, 200 lines of 40
+#       bytes, a set bit black)
 #   BOOT=build/geos/syn-ack-wire-geos-boot.atr tools/run-geos.sh ...
 #                       boot GEOS from that disk in D1:, as a player does, instead of -run
 #   GEOS_ATARI=dir      the geos-atari checkout (default ../../geos-atari): its build/atari_130_sio_d2 GEOS
@@ -74,13 +74,9 @@ trap 'pkill -P $FN 2>/dev/null; kill $FN 2>/dev/null; echo "logs: $WORK"' EXIT I
 OPTS="-config $WORK/atari800.cfg -xe -pal -nobasic -netsio $NETSIO -nojoystick -no-kbdjoy1"
 if [ -n "$DUMPDIR" ]; then
     mkdir -p "$DUMPDIR"
-    shadow=$(sed -n 's/^al 00\([0-9A-F]*\) \._shadow$/\1/p' "${CVT%.cvt}.lbl")
-    [ -n "$shadow" ] || { echo "no _shadow in ${CVT%.cvt}.lbl" >&2; exit 1; }
-    end=$(printf '%X' $((0x$shadow + 959)))
     i=0
     while [ $i -lt 999 ]; do
-        printf 'WRITE %s %s %s/scr%03d.bin\nWRITE A0D8 BED7 %s/bmp%03d.bin\nCONT\n' "$shadow" "$end" "$DUMPDIR" $i \
-            "$DUMPDIR" $i
+        printf 'WRITE A038 BF77 %s/bmp%03d.bin\nCONT\n' "$DUMPDIR" $i
         i=$((i + 1))
     done > "$WORK/monitor.txt"
     SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy "$ATARI800" $OPTS -bbrk $RUN \

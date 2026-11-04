@@ -37,6 +37,12 @@
 #define DISPLAY_IDLE 0
 #endif
 
+/* The last LOG_HISTORY log lines are kept, and K_UP/K_DOWN step back through them
+ * (display_log_view); 0 = none, and no code for it. */
+#ifndef LOG_HISTORY
+#define LOG_HISTORY 0
+#endif
+
 /* 1 = the title's loop calls display_title_idle() on every pass (coco: the
  * static in the logo's letters). */
 #ifndef TITLE_IDLE

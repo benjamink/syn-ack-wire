@@ -5,6 +5,7 @@
  * SELECT console keys are read from CONSOL once a frame (which rides out contact
  * bounce), and act once per press: OPTION is reported, SELECT turns sound on
  * or off right here, wherever the game is reading keys. */
+#include "../config.h"
 #include "../platform.h"
 
 #define CH      (*(volatile unsigned char *)0x2FC)
@@ -50,6 +51,12 @@ unsigned char in_key(void)
     ATRACT = 0;                         /* a key stops the colour-cycling screen saver */
     if (k == 0x66)                      /* Shift-/ */
         return K_HELP;
+#if LOG_HISTORY
+    if (k == 0x8E)                      /* CTRL+- and CTRL+=: the up and down arrows */
+        return K_UP;
+    if (k == 0x8F)
+        return K_DOWN;
+#endif
     return keymap[k & 0x3F];
 }
 

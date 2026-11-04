@@ -83,30 +83,23 @@ void snow_init(void);
 void dli(void);                         /* dli.s */
 void __fastcall__ band(unsigned char m); /* 0 off, 1 the bands; + 2 the title alert, + 4 the bottom's purple */
 
-#ifdef __GEOS__
-/* GEOS on the Atari (src/geos/screen.s): this layout, drawn into a 40x24 copy of a
- * text screen; screen_flush() puts what changed into GEOS's bitmap, 8x8 cells in
- * the Atari's font. No players or display list interrupts: one colour. */
-extern unsigned char shadow[960], font[1024], screen_dirty;
-void screen_init(void);
-void screen_flush(void);
-#define MARK()  (screen_dirty = 1)
-#define FLUSH() screen_flush()
-#define band(m)
-#else
-#define MARK()
-#define FLUSH()
 #pragma bss-name (push, "FONT")
 static unsigned char font[1024];
 #pragma bss-name (pop)
 #pragma bss-name (push, "PM")
 unsigned char pm[1024];                 /* players from pm + $200, 128 bytes each */
 #pragma bss-name (pop)
-#endif
 
 static unsigned char *row[24];
 static unsigned char *cur;
-static unsigned char inv, ready, i, j, n, v;
+static unsigned char inv, ready, i;
+#if !FANCY_PLAYFIELD
+static unsigned char j;
+#endif
+static unsigned char n;
+#if !FANCY_PLAYFIELD
+static unsigned char v;
+#endif
 static unsigned char half;              /* frames in half a second: the last move's blink */
 static unsigned char field;             /* the playfield is up: the title bar may draw */
 
@@ -114,28 +107,6 @@ static const unsigned char yen[8] = { 0x00, 0x66, 0x66, 0x3C, 0x7E, 0x18, 0x7E, 
 
 /* ---------------------------------------------------------------- drawing */
 
-#ifdef __GEOS__
-static void setup(void)
-{
-    unsigned char *p;
-    if (ready)
-        return;
-    ready = 1;
-    p = shadow;
-    for (i = 0; i < 24; ++i) {
-        row[i] = p;
-        p += 40;
-    }
-    screen_init();                      /* the ROM's font, a clear screen, no mouse pointer */
-    memcpy(font + 0x3C * 8, yen, 8);    /* "\" -> yen */
-    half = ticks_per_sec() >> 1;
-}
-
-static void panel(unsigned char on)
-{
-    field = on;
-}
-#else
 static void setup(void)
 {
     unsigned char *p;
@@ -188,11 +159,9 @@ static void panel(unsigned char on)
     memcpy(HPOSP0, hpos[on], 4);
     memset(PCOLR0, on ? PM_COLOR : SNOW_COLOR, 4);
 }
-#endif
 
 static void at(unsigned char r, unsigned char c)
 {
-    MARK();
     cur = row[r] + c;
 }
 
@@ -223,10 +192,10 @@ static void spaces(unsigned char k)
 
 static void clear_row(unsigned char r)
 {
-    MARK();
     memset(row[r], inv, 40);
 }
 
+#if !FANCY_PLAYFIELD
 /* Right-aligned decimal in `width` columns. `money` (units of 100) appends "00"
  * and puts the currency sign right before the digits, inside `width`. */
 static unsigned char digits[7];
@@ -275,6 +244,7 @@ static void syn_letters(unsigned char mask)
             put(' ');
         }
 }
+#endif
 
 #if !FANCY_TITLE
 /* ---------------------------------------------------------------- title */
@@ -298,7 +268,6 @@ void display_title_screen(void)
     text("OPTION");                     /* the OPTION key flips it */
     inv = 0;
     text("  MOVE HINTS");
-#ifndef __GEOS__                        /* no instruction pages on GEOS yet */
     at(TITLE_END + 6, 4);
     inv = INV;
     if (OSREV != 0xFF) {                /* an XL/XE OS, so the HELP key */
@@ -309,7 +278,6 @@ void display_title_screen(void)
     inv = 0;
     at(TITLE_END + 6, 12);
     text("INSTRUCTIONS, ANY TIME");
-#endif
     at(TITLE_END + 8, 4);
     text(refused == REFUSED_LATE ? "TOO LATE: THE LAST SEAT WAS TAKEN"
          : refused == REFUSED_HANDLE ? "THAT HANDLE IS TAKEN" : "TYPE A HANDLE, THEN RETURN");
@@ -488,6 +456,30 @@ void display_log(void)
     textn(msg + 2, n);
 }
 
+#if LOG_HISTORY
+/* The log rows from the history, log_back lines back; while back, ^ and how far, top right. */
+void display_log_view(void)
+{
+    const unsigned char *p;
+    for (j = 0; j < LOG_ROWS; ++j) {
+        clear_row(ROW_LOG + LOG_ROWS - 1 - j);
+        p = log_line(log_back + j);
+        if (p) {
+            at(ROW_LOG + LOG_ROWS - 1 - j, 1);
+            textn(p + 1, p[0]);
+        }
+    }
+    if (log_back) {
+        at(ROW_LOG, 36);
+        inv = INV;
+        put('^');
+        number(log_back, 2, 0);
+        put(' ');
+        inv = 0;
+    }
+}
+#endif
+
 static void kit_line(void)
 {
     clear_row(ROW_INFO);
@@ -551,10 +543,8 @@ void display_prompt(void)
             at(ROW_ASK, 1);
             text("WAITING FOR ");
             textn((const unsigned char *)seat_name[turn], 8);
-#ifndef __GEOS__
             at(ROW_ASK, 33);            /* the instructions, while there's time */
             text("? HELP");             /* (and HELP on an XL/XE: the title says so) */
-#endif
             inv = 0;
         } else {
             clear_row(ROW_ASK);
@@ -623,7 +613,6 @@ void display_message(const char *s)
     at(ROW_ASK, 1);
     text(s);
     inv = 0;
-    FLUSH();                            /* GEOS: the program may wait on the network next */
 }
 
 void display_game_over(void)
