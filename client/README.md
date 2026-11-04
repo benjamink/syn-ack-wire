@@ -933,9 +933,17 @@ make -C ../../geos-atari DRIVE=siodrv_atari SIO_UNIT=2     # once: geos-atari's 
 make geos-atr GEOS_ATARI=../../geos-atari                  # the two disks below
 ```
 - **To play it in the emulator:** `tools/run-geos-disks.sh` boots the two disks below (copies of them) from
-  FujiNet-PC; GEOS takes about a minute to load at 19200. Pick SYN-ACK WIRE in the file dialog with the PC's mouse,
+  FujiNet-PC, with its high-speed SIO on (`HSIO=3`, the default: GEOS loads in about 15 s, not a minute; `HSIO=-1`
+  for 19200). Pick SYN-ACK WIRE in the file dialog with the PC's mouse,
   which the script makes atari800's joystick (`-mouse joy`; or the keypad's 8/4/6/5 and Right Ctrl).
-- **The disks:** `syn-ack-wire-geos-boot.atr` boots geos-atari's GEOS (PicoBoot, as the Atari disk); it then
+- **The disks:** `syn-ack-wire-geos-boot.atr` boots geos-atari's GEOS (71K) with MyPicoDos 4.06 in autorun mode
+  (`dir2atr -a -b MyPicoDos406`), which loads at high speed when the FujiNet's HSIO index is set (its web page; on a
+  real Atari no hardware change is needed) and at 19200 when it isn't. Timed in atari800 with FujiNet-PC over
+  NetSIO: 58 s with PicoBoot at 19200, 62 s with MyPicoDos at 19200, 27 s at index 8 (57,600 baud), 15 s at index 3
+  (87,361); index 0 (124,017) stalls. After it, FujiNet is at the high speed and GEOS's disk driver and the game's
+  SIO at 19200: on a real Atari the first command frame at 19200 is garbled, FujiNet switches back, and both resend
+  it (GEOS's driver tries 4 times, `net_sio.s` resends an unacknowledged frame); NetSIO passes bytes as messages, so
+  atari800 never sees the mismatch. It then
   reads `syn-ack-wire-geos.atr` in D2:, a 180K GEOS disk (geos-atari's `tools/mkramdisk.py`) with geos-atari's file
   selector as its DESK TOP: GEOS's file dialog lists the applications, SYN-ACK WIRE among them. Esc on the title,
   then Y, goes back to it. GEOS's disk driver and the game's SIO take turns on the bus: GEOS reads the disk only

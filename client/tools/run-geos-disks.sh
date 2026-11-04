@@ -11,6 +11,9 @@
 #   tools/run-geos-disks.sh                        build/geos/syn-ack-wire-geos-boot.atr and syn-ack-wire-geos.atr
 #   tools/run-geos-disks.sh BOOT.atr GEOS.atr      other disks
 #   FUJINET_DIR=dir     an Atari FujiNet-PC; INSTANCE=n its ports: NetSIO 9997+n, web 8000+n (default 7)
+#   HSIO=n              FujiNet's high-speed SIO index for the boot (default 3, about 87 kbaud; -1 off, 19200):
+#                       the boot disk's MyPicoDos loads GEOS at that speed (15 s at 3, 27 s at 8, 58 s off). 0
+#                       stalls the boot in atari800. GEOS's own disk driver and the game's network stay at 19200.
 #
 # The disks are copied, so the built ones stay as they are (GEOS writes to D2:). The disks dial the public server
 # unless built otherwise (make geos-atr URL=N:TCP://localhost:6599/ LOBBY_KEY=0, after make clean of build/geos).
@@ -38,9 +41,10 @@ mkdir "$WORK/sd"
 cp "$BOOTATR" "$WORK/sd/boot.atr"
 cp "$GEOSATR" "$WORK/sd/geos.atr"
 
-awk -v netsio=$NETSIO '/^\[/ { skip = /^\[Mount[0-9]+\]/; boip = /^\[BOIP\]/ }
+awk -v netsio=$NETSIO -v hsio="${HSIO:-3}" '/^\[/ { skip = /^\[Mount[0-9]+\]/; boip = /^\[BOIP\]/ }
      /^configenabled=/ { $0 = "configenabled=0" }
      /^boot_mode=/ { $0 = "boot_mode=0" }
+     /^hsioindex=/ { $0 = "hsioindex=" hsio }
      boip && /^port=/ { $0 = "port=" netsio }
      !skip' "$FUJINET_DIR/fnconfig.ini" > "$WORK/fnconfig.ini"
 printf '\n[Mount1]\nhostslot=1\npath=/boot.atr\nmode=r\n\n[Mount2]\nhostslot=1\npath=/geos.atr\nmode=w\n' \
