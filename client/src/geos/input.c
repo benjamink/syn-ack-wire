@@ -10,7 +10,7 @@
  * The game loops call in_key() on every pass. It is where the keyboard's IRQ
  * may come in: the program runs with IRQs masked (screen.s says why), and a
  * key held back meanwhile arrives here. It passes the key and GEOS's pointer
- * to display_gui.c's menus, which may take them, or give a key of their own;
+ * to display_gui.c's menu, which may take them, or give a key of their own;
  * a menu item that needs more than one (Quit: Esc, Y, then Esc, Y on the title)
  * queues them in key_queue. */
 #include "../platform.h"
@@ -39,7 +39,7 @@ void frame_done(void);                  /* frame.s */
 extern volatile unsigned char geos_tick;
 
 static unsigned char k, frame, held, pressed;
-const unsigned char *key_queue;         /* display_gui.c's menus: keys for the game, one a call */
+const unsigned char *key_queue;         /* display_gui.c's menu: keys for the game, one a call */
 
 static unsigned char key(void)
 {
@@ -72,8 +72,10 @@ unsigned char in_key(void)
         k = ~CONSOL & 6;                /* OPTION, SELECT */
         pressed = k & ~held;
         held = k;
-        if (pressed & 2)
+        if (pressed & 2) {
             snd_toggle();
+            display_title_update();     /* the title shows it */
+        }
         if (pressed & 4)
             return K_OPTION;
     }

@@ -72,7 +72,7 @@ void screen_init(void);                 /* screen.s: the font, IRQs masked */
 unsigned char romfont[8 + 2 * 97 + 8 * 64];   /* (draw.s draws with it) */
 static unsigned char gui_ready, gui_on, on_title;
 static unsigned char hold, missed;     /* a menu is open: drawing waits; something did */
-static unsigned char menu = 0xFF, item = 0xFF, was_down;   /* the open menu, its item */
+static unsigned char menu = 0xFF, item = 0xFF, was_down;   /* the menu's open (0), its item */
 static unsigned char i, j, n, v;
 static unsigned char half;
 static const char *const mixed[NSYN] = SYN_MIXED;
@@ -153,7 +153,7 @@ static unsigned char live(void)
 
 /* What the places drawn often show, as a signature of what drew them (sig.s): a place is
  * drawn again only when that changes, or when everything is (`all`). */
-enum { S_REGION, S_STATUS, S_HANDLE, S_HINTS, S_BAR, S_CLOCK, S_HEAD, S_HIVE };   /* 14 */
+enum { S_REGION, S_STATUS, S_HANDLE, S_HINTS, S_SOUND, S_BAR, S_CLOCK, S_HEAD, S_HIVE };   /* 15 */
 extern unsigned sig;
 extern unsigned char all;
 void __fastcall__ mix(const unsigned char *p, unsigned char len);
@@ -623,7 +623,6 @@ void display_link(void)
 
 static const struct label menu_labels[] = {
     { "file", 6, 2, 0 },
-    { "options", 36, 2, 0 },
     { 0 }
 };
 
@@ -656,6 +655,18 @@ static void field(unsigned char place, unsigned char y)
     show(T_VAL, y);
 }
 
+extern unsigned char snd_on;            /* sound.s */
+
+/* ON or OFF, the other way round */
+static void on_off(unsigned char on)
+{
+    text(on ? "ON" : "OFF");
+    bp[-1] |= 0x80;
+    bp[-2] |= 0x80;
+    if (!on)
+        bp[-3] |= 0x80;
+}
+
 /* Each line that changes, drawn over in place. */
 void display_title_update(void)
 {
@@ -676,19 +687,20 @@ void display_title_update(void)
     field(S_HANDLE, T_Y + 20);
     bp = buf;
     text("MOVE HINTS ");
-    text(hints ? "ON" : "OFF");
-    bp[-1] |= 0x80;
-    bp[-2] |= 0x80;
-    if (!hints)
-        bp[-3] |= 0x80;
+    on_off(hints);
     field(S_HINTS, T_Y + 33);
+    bp = buf;
+    text("SOUND ");
+    on_off(snd_on);
+    field(S_SOUND, T_Y + 43);
 }
 
 static const struct label title_labels[] = {
     { "REGION", T_X, T_Y, SET_BOLD },
     { "STATUS", T_X, T_Y + 10, SET_BOLD },
     { "HANDLE", T_X, T_Y + 20, SET_BOLD },
-    { "OPTION", T_X, T_Y + 33, L_INV }, /* the key; not bold, which would overhang the inverse */
+    { "OPTION", T_X, T_Y + 33, L_INV }, /* the keys; not bold, which would overhang the inverse */
+    { "SELECT", T_X, T_Y + 43, L_INV },
     { 0 }
 };
 
@@ -803,6 +815,7 @@ void display_title_screen(void)
     if (!gui_ready)
         gui_init();
     on_title = 1;
+    secs = 0;                           /* no question here, so no seconds left */
     log_count = log_back = 0;           /* a new game, a new log */
     info_n = borrowed = 0;
     bp = buf;
@@ -821,97 +834,64 @@ void display_playfield(void)
 }
 
 
-/* ---------------------------------------------------------------- menus */
+/* ---------------------------------------------------------------- the menu */
 
-/* Drawn here, GEOS-like, and read from the pointer by gui_poll(): a click on a title opens
- * its menu, a click on an item chooses it, a click anywhere else or a key closes it. The
- * game goes on while one is open; what it would draw waits, and the screen is redrawn
- * after (or put back as it was, if nothing came). */
-#define A_LOGOFF 1
-#define A_QUIT  2
-#define A_HINTS 3
-#define A_SOUND 4
+/* One menu, file, drawn here, GEOS-like, and read from the pointer by gui_poll(): a click on its
+ * title opens it, a click on an item chooses it, a click anywhere else or a key closes it. The
+ * game goes on while it's open; what it would draw waits, and is drawn after, over what the menu
+ * covered, put back. Move hints and sound are the title screen's (OPTION, SELECT). */
+#define M_TITLE 31                      /* the title's right end */
+#define M_RIGHT 99                      /* the widest item, 30 to spare (BSW 9: "Quit to DeskTop" 69) */
+#define M_BOT   35                      /* two items, 10 apart from 14 */
 
-extern unsigned char snd_on;            /* sound.s */
 extern const unsigned char *key_queue;  /* input.c: keys to give the game, one a call */
 
-struct item {
-    const char *label, *key;
-    unsigned char act;
+static const struct label menu_items[] = {
+    { TM_LOGOFF, 12, 15, 0 },
+    { "Esc", M_RIGHT - 4, 15, L_RIGHT },
+    { "Quit to DeskTop", 12, 25, 0 },
+    { 0 }
 };
-static const struct item items[] = {
-    { TM_LOGOFF, "Esc", A_LOGOFF },
-    { "Quit to DeskTop", "", A_QUIT },
-    { "Move hints", "OPTION", A_HINTS },
-    { "Sound", "SELECT", A_SOUND },
-};
-static const unsigned char first[3] = { 0, 2, 4 };      /* each menu's items */
-static const unsigned char title_x[3] = { 0, 31, 72 };  /* the titles' spans */
-static const unsigned char menu_right[2] = { 99, 139 }; /* the widest item and its key, 30 between
-                                                           (GEOS's BSW 9: "Quit to DeskTop" 69,
-                                                           "Move hints" 49 + "OPTION" 29) */
 static const unsigned char quit_keys[] = { K_ESC, 'Y', K_ESC, 'Y', 0 };  /* log off, then quit */
 static const unsigned char logoff_keys[] = { K_ESC, 0 };   /* the Y/N is the player's */
 
-static unsigned char m_bot, m_right;
-static unsigned char saved[560];        /* what a menu covers: options, 15 bytes by 37 lines */
-static unsigned char sv_top, sv_rows, sv_xb, sv_bytes;
+static unsigned char saved[13 * 37];    /* what the menu covers: 13 bytes by 37 lines */
+#define SV_BYTES 13
+#define SV_ROWS  37
 
-static void save(unsigned char top, unsigned char bot, unsigned left, unsigned right)
-{
-    unsigned char *p = saved;
-    sv_top = top;
-    sv_rows = bot - top + 1;
-    sv_xb = left >> 3;
-    sv_bytes = (right >> 3) - sv_xb + 1;
-    for (i = 0; i < sv_rows; ++i, p += sv_bytes)
-        memcpy(p, BITMAP + (sv_top + i) * 40 + sv_xb, sv_bytes);
-}
-
-static void close_all(void)
+static void close_menu(void)
 {
     unsigned char *p = saved;
     if (menu == 0xFF)
         return;
     menu = item = 0xFF;
     hold = 0;
-    for (i = 0; i < sv_rows; ++i, p += sv_bytes)
-        memcpy(BITMAP + (sv_top + i) * 40 + sv_xb, p, sv_bytes);
+    for (i = 0; i < SV_ROWS; ++i, p += SV_BYTES)
+        memcpy(BITMAP + (1 + i) * 40, p, SV_BYTES);
     if (missed) {
         missed = 0;
         refresh();
     }
 }
 
-static unsigned item_top(unsigned char k)
+static void open_menu(void)
 {
-    return 14 + 10 * (k - first[menu]);
-}
-
-static void open_menu(unsigned char m)
-{
-    unsigned char k, y;
-    menu = m;
+    unsigned char *p = saved;
+    menu = 0;
     item = 0xFF;
     hold = 1;
     missed = 0;
-    m_right = menu_right[m];
-    m_bot = 14 + 10 * (first[m + 1] - first[m]) + 1;
-    save(1, m_bot + 2, title_x[m], m_right + 2);
-    invert(1, 11, title_x[m] + 1, title_x[m + 1] - 1);
-    panel(12, m_bot, title_x[m], m_right);
-    for (k = first[m]; k < first[m + 1]; ++k) {
-        y = item_top(k) + 1;
-        say(items[k].label, title_x[m] + 12, y);
-        bp = buf;
-        text(items[k].key);
-        show_right(m_right - 4, y);
-        if ((items[k].act == A_HINTS && hints) || (items[k].act == A_SOUND && snd_on)) {
-            for (n = 0; n < 7; ++n)     /* a tick */
-                box(y + (n < 2 ? 3 + n : 7 - n), y + (n < 2 ? 3 + n : 7 - n),
-                    title_x[m] + 3 + n, title_x[m] + 3 + n, P_BLACK);
-        }
-    }
+    for (i = 0; i < SV_ROWS; ++i, p += SV_BYTES)
+        memcpy(p, BITMAP + (1 + i) * 40, SV_BYTES);
+    invert(1, 11, 1, M_TITLE - 1);
+    panel(12, M_BOT, 0, M_RIGHT);
+    labels(menu_items);
+}
+
+/* The item k's line, highlighted or back */
+static void flip(unsigned char k)
+{
+    invert(14 + 10 * k, 23 + 10 * k, 1, M_RIGHT - 1);
 }
 
 /* The pointer and a key (0 if none) from in_key(): what the game should take as the key. */
@@ -923,52 +903,28 @@ unsigned char __fastcall__ gui_poll(unsigned char k, unsigned x, unsigned char y
         return k;
     if (menu != 0xFF) {
         m = 0xFF;                       /* the item under the pointer */
-        if (x > title_x[menu] && x < m_right && y >= 14 && y < m_bot - 1)
-            m = first[menu] + (y - 14) / 10;
+        if (x && x < M_RIGHT && y >= 14 && y < M_BOT - 1)
+            m = (y - 14) / 10;
         if (m != item) {
             if (item != 0xFF)
-                invert(item_top(item), item_top(item) + 9, title_x[menu] + 1, m_right - 1);
+                flip(item);
             if (m != 0xFF)
-                invert(item_top(m), item_top(m) + 9, title_x[menu] + 1, m_right - 1);
+                flip(m);
             item = m;
         }
-        if (k) {
-            close_all();
-            return 0;
-        }
-        if (!click)
-            return 0;
-        close_all();
-        if (m == 0xFF) {
-            if (y < 12)                 /* another title */
-                goto title;
-            return 0;
-        }
-        switch (items[m].act) {
-        case A_LOGOFF:
+        if (k || click)
+            close_menu();
+        if (click && m == 0) {          /* Log off */
             if (!on_title)              /* not jacked in yet: nothing to leave */
                 key_queue = logoff_keys;
-            return 0;
-        case A_QUIT:
+        } else if (click && m == 1) {   /* Quit to DeskTop */
             key_queue = on_title ? quit_keys + 2 : quit_keys;
-            return 0;
-        case A_HINTS:
-            return K_OPTION;
-        case A_SOUND:
-            snd_toggle();
-            return 0;
         }
         return 0;
     }
     if (click && x >= 298 && y > LY && y <= LY + 16)    /* the log's arrows */
         return y <= LY + 8 ? K_UP : K_DOWN;
-    if (!click || y >= 12)
-        return k;
-title:
-    for (m = 0; m < 2; ++m)
-        if (x >= title_x[m] && x < title_x[m + 1]) {
-            open_menu(m);
-            break;
-        }
+    if (click && y < 12 && x < M_TITLE)
+        open_menu();
     return k;
 }

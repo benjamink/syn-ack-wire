@@ -35,17 +35,14 @@ static const unsigned char paging[] = { K_HELP, '>', '>', '>', '>', '>', '>', '>
 static const unsigned char brk_back[] = { 0x08, 0x40 };
 #define BRKVector (*(const void **)0x84AF)
 #define DUMP() do { BRKVector = brk_back; __asm__ ("brk"); __asm__ ("nop"); } while (0)
-/* The menus, once, part-way into the first game: the pointer's moves and button (x, y, down,
- * dump after), given to display_gui.c as in_key() would. Options: Move hints highlighted, then
- * chosen; options opened again, shown, then closed; file opened and closed; then file, Quit to
- * DeskTop, which logs off, quits from the title, and (on run-geos.sh's disk, where it is the
- * DeskTop) starts again. */
+/* The menu, once, part-way into the first game: the pointer's moves and button (x, y, down,
+ * dump after), given to display_gui.c as in_key() would. file opened, Log off highlighted,
+ * closed by a click elsewhere; then file, Quit to DeskTop, which logs off, quits from the
+ * title, and (on run-geos.sh's disk, where it is the DeskTop) starts again. */
 unsigned char __fastcall__ gui_poll(unsigned char k, unsigned x, unsigned char y, unsigned char down);
 static const unsigned char clicks[][4] = {
-    { 50, 5, 1, 0 }, { 50, 5, 0, 0 }, { 80, 18, 0, 1 }, { 80, 18, 1, 0 }, { 80, 18, 0, 0 },
-    { 50, 5, 1, 0 }, { 50, 5, 0, 1 }, { 150, 150, 1, 0 }, { 150, 150, 0, 0 },
-    { 15, 5, 1, 0 }, { 15, 5, 0, 1 }, { 200, 150, 1, 0 }, { 200, 150, 0, 1 },
-#define QUIT_AT 13                          /* the log's history first: up three, a dump each, down one */
+    { 15, 5, 1, 0 }, { 15, 5, 0, 0 }, { 60, 18, 0, 1 }, { 200, 150, 1, 0 }, { 200, 150, 0, 1 },
+#define QUIT_AT 5                           /* the log's history first: up three, a dump each, down one */
     { 15, 5, 1, 0 }, { 15, 5, 0, 0 }, { 60, 28, 1, 0 }, { 60, 28, 0, 0 },   /* Quit to DeskTop */
 };
 static unsigned char clicked;
