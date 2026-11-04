@@ -972,7 +972,9 @@ make geos-atr GEOS_ATARI=../../geos-atari                  # the two disks below
   - HIVES: letter, nodes (inverse when Black ICE), the name in mixed case (`SYN_MIXED`, from `theme.toml`), and
     while you buy, PRICE and LEFT. The NETRUNNER panel: all six seats, the turn's inverse.
   - The log, three lines, with arrows at its right to step back through the history (and `^ n` while back), then
-    the bar: what the prompt is about on the left, the question on the right, the seconds at the end. When the two
+    the bar: what the prompt is about on the left, the question on the right, the seconds at the end. It is inverse
+    only while something waits for your answer (a prompt, Esc's Y/N; on the title, the handle and QUIT TO GEOS?),
+    plain otherwise (WAITING FOR..., the end of the game, DIALING...). When the two
     don't fit side by side (a hivejack's), the first takes the log's third line, inverse, until the prompt closes.
     Your move's question is shorter than the Atari's (PRESS 1-6, the kit beside it).
   - Text is GEOS's system font (BSW 9), the currency sign the Atari's. GEOS draws a character's whole box, 9
@@ -1064,7 +1066,7 @@ make geos-atr GEOS_ATARI=../../geos-atari                  # the two disks below
 | `snow.s` | 74 | + 48 rodata (masks), 3 bss: the title's static, also from the deferred VBI |
 | `dli.s` | 133 | the color bands' DLI handler and its display list switch (117 before the title's purple) |
 | **geos** (2026-11-03, cc65 `geos-cbm`) | | |
-| `synack.cvt` | 16345 | whole GEOS file (header and directory entry included); loads at $0500, 3.6K bss to $511D (17185 with the options menu, 17801 with the helpers in C, 18345 with the About box, 18133 with the Atari's text title, 12138 with the text playfield too) |
+| `synack.cvt` | 16488 | whole GEOS file (header and directory entry included); loads at $0500, 3.6K bss to $51AD (16345 before the bar was plain while nothing asks, 17185 with the options menu, 17801 with the helpers in C, 18345 with the About box, 18133 with the Atari's text title, 12138 with the text playfield too) |
 | `display_gui.c` | 5912 | the title and the playfield, the menu about 0.6K of it: + 1243 rodata (364 of title art; the fixed panels and labels), 1359 bss (the Atari font as a GEOS font, 714; what the menu covers, 481; the bar's two lines) |
 | `draw.s` | 1082 | + 65 bss (`buf`, the pen): the drawing helpers (1,668 less in `display_gui.c`) and the fixed parts' tables' loops |
 | `sig.s` | 109 | + 35 bss: the places' signatures |

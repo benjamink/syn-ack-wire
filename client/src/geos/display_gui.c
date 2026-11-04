@@ -82,7 +82,7 @@ static const char *const mixed[NSYN] = SYN_MIXED;
 /* draw.s: areas, characters, text put together in buf from bp and drawn at the pen, px, in
  * `bold` (0 or SET_BOLD), clipped `clip` lines below its top (GEOS draws a character's whole box,
  * so it would wipe what's below). Bit 7 on a character in buf draws it the other way round from
- * what's around it (inverse in a white area, plain in the bar); '\' is the yen. */
+ * what's around it (inverse in a white area, plain in the bar while it asks); '\' is the yen. */
 extern unsigned px;
 extern unsigned char bold, clip, buf[48];
 #define bp (*(unsigned char **)0x78)    /* GEOS's application register a6 */
@@ -171,6 +171,10 @@ static unsigned char missed_node[(NODES + 7) / 8], missed_seat, missed_more;
 static unsigned char info[48], info_n, ask[48], ask_n;
 static unsigned char borrowed;          /* the prompt's subject is on the log's last line */
 
+/* The bar (its clock, and the subject on the log's last line) is inverse only while a question
+ * waits for the player: a prompt, Esc's Y/N, the title's handle, or a message that asks (a '?'). */
+static unsigned char asking;            /* set where the question comes or goes */
+
 /* An arrow 7 wide at the log panel's right, its point up or down. */
 static void arrow(unsigned char y, unsigned char up)
 {
@@ -195,7 +199,8 @@ static void log_lines(void)
     if (borrowed) {
         px = 8;
         out(info, info_n, LY + 17);
-        invert(LY + 16, BAR_TOP - 1, 4, 314);
+        if (asking)
+            invert(LY + 16, BAR_TOP - 1, 4, 314);
     }
     arrow(LY + 3, 1);
     arrow(LY + 11, 0);
@@ -214,6 +219,8 @@ static unsigned char secs;              /* the clock's */
 static void clock_at(void)
 {
     sig = secs;
+    if (asking)
+        sig |= 0x8000;
     if (!fresh(S_CLOCK))
         return;
     box(BAR_TOP, BAR_TOP + 9, BAR_R + 1, 314, P_WHITE);
@@ -224,7 +231,8 @@ static void clock_at(void)
         show_right(CLOCK_R, BAR_TOP + 1);
         bold = 0;
     }
-    invert(BAR_TOP, BAR_TOP + 9, BAR_R + 1, 314);
+    if (asking)
+        invert(BAR_TOP, BAR_TOP + 9, BAR_R + 1, 314);
 }
 
 /* The bar from info[] and ask[], and the log's lines if the room changes. */
@@ -233,6 +241,8 @@ static void bar(void)
     unsigned wi, wa;
     unsigned char b;
     sig = info_n << 8 | ask_n;
+    if (asking)
+        sig |= 0x8000;              /* info_n < 48 */
     mix(info, info_n);
     mix(ask, ask_n);
     b = fresh(S_BAR);
@@ -257,7 +267,8 @@ static void bar(void)
     }
     px = BAR_R - wa;
     out(ask, ask_n, BAR_TOP + 1);
-    invert(BAR_TOP, BAR_TOP + 9, 4, BAR_R);
+    if (asking)
+        invert(BAR_TOP, BAR_TOP + 9, 4, BAR_R);
 }
 
 static void set_info(void)
@@ -498,6 +509,7 @@ static void kit_info(void)
 
 void display_prompt(void)
 {
+    asking = pr_kind | leaving;
     if (leaving) {                      /* Esc: the question waits; the prompt comes back after */
         bp = buf;
         text(T_LOGOFF " NOW? Y/N");
@@ -576,6 +588,7 @@ void display_clock(unsigned char s)
 
 void display_message(const char *s)
 {
+    asking = strchr(s, '?') != 0;
     bp = buf;
     text(s);
     ask_done();
@@ -814,7 +827,7 @@ void display_title_screen(void)
 {
     if (!gui_ready)
         gui_init();
-    on_title = 1;
+    on_title = asking = 1;              /* a handle to type */
     secs = 0;                           /* no question here, so no seconds left */
     log_count = log_back = 0;           /* a new game, a new log */
     info_n = borrowed = 0;
