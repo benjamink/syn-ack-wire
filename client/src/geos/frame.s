@@ -21,7 +21,6 @@ NMIEN   = $D40E
         .bss
 geos_tick:
 _geos_tick: .res 1
-old:    .res 2
 
         .code
 
@@ -29,7 +28,7 @@ frame_init:
         lda intTopVector
         ldx intTopVector+1
         sta old
-        stx old+1
+        stx old+1               ; (in the JMP itself: a JMP ($xxFF) would read the wrong high byte)
         lda #<frame
         ldx #>frame
         bne set                 ; always
@@ -51,4 +50,5 @@ frame:  inc geos_tick
         lda #1
         sta net_ready
 :       jsr snd_vbi
-        jmp (old)
+        .byte $4C               ; JMP: on to what intTopVector held before
+old:    .word 0

@@ -964,7 +964,7 @@ make geos-atr GEOS_ATARI=../../geos-atari                  # the two disks below
   space), OPTION and the move hints, SELECT and the sound (SELECT redraws it: nothing else shows it), in GEOS's
   system font; and the playfield's bar along the bottom for what to do (TYPE A HANDLE, THEN RETURN, the refusals,
   QUIT TO GEOS? Y/N, DIALING...). The menu works here too; Log off is idle and Quit asks nothing more. No static or colour.
-- **The instructions,** from the title for now: **?** or HELP (geos-atari's keyboard gives HELP as GEOS's pound
+- **The instructions,** on the title or mid-game: **?** or HELP (geos-atari's keyboard gives HELP as GEOS's pound
   sign). They are the Atari's pages (`help/atari/screen/`, `GEOSHELP` in the Makefile), as one GEOS file on the GEOS
   disk, `SYN-ACK WIRE ?` (`GEOSHELPNAME`; GEOS names are at most 16 characters and there are no folders):
   `tools/help_geos.py` makes it, a VLIR file of type APPL_DATA, a page a record (960 screen codes), with its own
@@ -972,10 +972,18 @@ make geos-atr GEOS_ATARI=../../geos-atari                  # the two disks below
   renamed file still works, and reads a page with `ReadRecord`; `screen.s` draws it in the Atari's ROM font, a cell
   a byte across, so a page looks as it does on the Atari, inverse, box drawing and QR code included. **>** or **\***
   (with CTRL too) the next page, **<** or **+** the one before, Esc, Return, HELP or ? back; a click on the left
-  third goes back a page, the right third on, between them back to the title. Meanwhile nothing else draws
-  (`display_gui.c` holds it, as for its menu) and the loop goes on reading the network; closing draws the title
-  again. The last page read stays (960 bytes), so they open where they were left. With no help file: NO HELP FILE
-  ON THIS DISK. Mid-game pages could draw the game into GEOS's background screen ($6000, unused) meanwhile; not yet.
+  third goes back a page, the right third on, between them closes them. The last page read stays (960 bytes), so
+  they open where they were left. With no help file: NO HELP FILE ON THIS DISK.
+  - **The game goes on under them,** as the server doesn't wait: opening puts the screen into GEOS's background
+    screen (`ImprintRectangle`) and points GEOS's drawing there (`dispBufferOn`), so the game keeps drawing, unseen;
+    closing puts it back (`RecoverRectangle`), as it went on. A new turn's chord is the cue to go back. On geos-atari
+    the background screen is in a 130XE bank at $6000, beside the kernal's drawing code, so only the kernal's calls
+    reach it, not a copy of main memory's $6000; the title art, which `display_gui.c` writes itself, can't, so a whole
+    new screen under the pages (a game over: the title) is drawn when they close.
+  - **The turn clock lags under them:** geos-atari's frame interrupt counts every frame (`jiffyCounter`) but skips
+    the programs' hook (`intTopVector`, where `frame.s` ticks) while its kernal bank is in, for each drawing call and
+    disk read; a page turn reads the disk, so a minute's clock showed 54 s left after 19 s with the pages up. The
+    server's clock is the real one.
 - **The playfield:**
   - y 0-12, the menu bar: **file** (Log off, Quit to DeskTop), and the region and link on the right. No **geos**
     menu or About box, and no **options** menu: move hints and sound are on the title screen and OPTION and
@@ -1080,9 +1088,9 @@ make geos-atr GEOS_ATARI=../../geos-atari                  # the two disks below
 | `snow.s` | 74 | + 48 rodata (masks), 3 bss: the title's static, also from the deferred VBI |
 | `dli.s` | 133 | the color bands' DLI handler and its display list switch (117 before the title's purple) |
 | **geos** (2026-11-03, cc65 `geos-cbm`) | | |
-| `synack.cvt` | 17270 | whole GEOS file (header and directory entry included); loads at $0500, 4.6K bss to $5895 (16488 before the instruction pages, 16345 before the bar was plain while nothing asks, 17185 with the options menu, 17801 with the helpers in C, 18345 with the About box, 18133 with the Atari's text title, 12138 with the text playfield too) |
-| `display_gui.c` | 6076 | the title and the playfield, the menu about 0.6K of it: + 1243 rodata (364 of title art; the fixed panels and labels), 1359 bss (the Atari font as a GEOS font, 714; what the menu covers, 481; the bar's two lines) |
-| `help.c` | 408 | + 49 rodata, 984 bss (a page, 960): the instruction pages, read with GEOS's file calls (about 70 bytes of geos-cbm.lib's); `screen.s` draws them (125) |
+| `synack.cvt` | 17294 | whole GEOS file (header and directory entry included); loads at $0500, 4.6K bss to $58AC (17270 with the pages on the title only, 16488 before the instruction pages, 16345 before the bar was plain while nothing asks, 17185 with the options menu, 17801 with the helpers in C, 18345 with the About box, 18133 with the Atari's text title, 12138 with the text playfield too) |
+| `display_gui.c` | 6112 | the title and the playfield, the menu about 0.6K of it: + 1243 rodata (364 of title art; the fixed panels and labels), 1359 bss (the Atari font as a GEOS font, 714; what the menu covers, 481; the bar's two lines) |
+| `help.c` | 365 | + 49 rodata, 984 bss (a page, 960): the instruction pages, read with GEOS's file calls (about 70 bytes of geos-cbm.lib's); `screen.s` draws them (138) |
 | `draw.s` | 1082 | + 65 bss (`buf`, the pen): the drawing helpers (1,668 less in `display_gui.c`) and the fixed parts' tables' loops |
 | `sig.s` | 109 | + 35 bss: the places' signatures |
 | `screen.s` | 83 | + 1K bss, the ROM's font, copied with ANTIC's DMA off (24 of it; 384 when it drew the text title too) |

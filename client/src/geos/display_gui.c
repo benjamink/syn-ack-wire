@@ -70,8 +70,7 @@ void screen_init(void);                 /* screen.s: the font, IRQs masked */
 #define T_VAL   96                      /* what they say */
 
 unsigned char romfont[8 + 2 * 97 + 8 * 64];   /* (draw.s draws with it) */
-static unsigned char gui_ready, gui_on;
-unsigned char on_title;                 /* input.c: the pages open from it */
+static unsigned char gui_ready, gui_on, on_title;
 static unsigned char hold, missed;     /* a menu is open: drawing waits; something did */
 static unsigned char menu = 0xFF, item = 0xFF, was_down;   /* the menu's open (0), its item */
 static unsigned char i, j, n, v;
@@ -813,26 +812,44 @@ static void refresh(void)
     bar();
 }
 
+/* While the instruction pages (help.c) cover the screen, GEOS draws into its background screen
+ * instead: the screen goes there when they open (ImprintRectangle), and comes back from it,
+ * drawn on meanwhile, when they close (RecoverRectangle). On geos-atari the background screen is
+ * in a 130XE bank at $6000, beside the kernal's drawing code, so only the kernal's own calls reach
+ * it; the title art, which this file writes into the screen itself, can't. So a whole new screen
+ * under the pages (a game over: the title) waits, and is drawn when they close. */
+static void take(void);
+static struct window whole = { 0, 199, 0, 319 };
+static unsigned char redraw;            /* a new screen came under the pages */
+
+void __fastcall__ gui_cover(unsigned char on)
+{
+    InitDrawWindow(&whole);
+    if (on) {
+        ImprintRectangle();
+        dispBufferOn = ST_WR_BACK;
+    } else {
+        dispBufferOn = ST_WR_FORE;
+        if (redraw)
+            take();
+        else
+            RecoverRectangle();
+    }
+}
+
 /* The screen ours, with the pointer, and everything drawn. GEOS's colours stay, the DeskTop's. */
 static void take(void)
 {
     gui_on = 1;
     hold = 0;
     menu = item = 0xFF;
+    redraw = helping;                   /* under the instruction pages: drawn after them */
+    if (redraw)
+        return;
     dispBufferOn = ST_WR_FORE;
     MouseUp();
     UseSystemFont();
     repaint();
-}
-
-/* The instruction pages (help.c) cover the screen: drawing waits until they close, then the
- * screen is drawn again, all of it. */
-void __fastcall__ gui_cover(unsigned char on)
-{
-    if (on)
-        hold = 1;
-    else
-        take();
 }
 
 void display_title_screen(void)

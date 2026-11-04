@@ -18,7 +18,9 @@
 ; void screen_init(void)  the font; IRQs masked
 ; void __fastcall__ help_draw(const unsigned char *page)
 ;       an instruction page (help.c), 24 rows of 40 screen codes, onto GEOS's screen from line
-;       PAGE_Y: a cell a byte across and 8 lines down, bit 7 inverse, as the Atari shows it
+;       PAGE_Y: a cell a byte across and 8 lines down, bit 7 inverse, as the Atari shows it; the
+;       lines above and below it white. Straight into the screen: GEOS draws into its background
+;       screen meanwhile
 
         .export _font, _screen_init, _help_draw
         .importzp ptr1, ptr2, ptr3, ptr4, tmp1, tmp2, tmp3, tmp4
@@ -79,6 +81,12 @@ PAGE_Y  = 4             ; 192 lines of page, 4 above and below
 _help_draw:
         sta ptr1                ; the page
         stx ptr1+1
+        lda #0
+        ldy #PAGE_Y * 40        ; white above and below
+:       sta BITMAP - 1,y
+        sta BITMAP + (PAGE_Y + 192) * 40 - 1,y
+        dey
+        bne :-
         lda #<(BITMAP + PAGE_Y * 40)
         sta ptr2                ; the row's first line
         lda #>(BITMAP + PAGE_Y * 40)

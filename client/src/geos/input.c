@@ -4,8 +4,8 @@
  * left arrow, Shift-Delete as backspace, and OPTION held with a key sets its
  * bit 7 (the shortcut key, C= on a C64). OPTION and SELECT on their own are read
  * from CONSOL once a frame, as on the Atari: OPTION flips the move hints,
- * SELECT the sound. The ticks are frame.s's. On the title, ? and HELP (GEOS's pound
- * sign) open the instruction pages (help.c); CTRL+* (GEOS's right arrow) comes as *, the
+ * SELECT the sound. The ticks are frame.s's. ? and HELP (GEOS's pound sign) open the
+ * instruction pages (help.c), on the title or mid-game; CTRL+* (GEOS's right arrow) comes as *, the
  * pages' next, as CTRL++ (its left, which is its backspace) comes as Delete.
  *
  * The game loops call in_key() on every pass. It is where the keyboard's IRQ
@@ -41,7 +41,6 @@ unsigned char __fastcall__ gui_poll(unsigned char k, unsigned x, unsigned char y
 void frame_done(void);                  /* frame.s */
 extern volatile unsigned char geos_tick;
 
-extern unsigned char on_title;          /* display_gui.c */
 static unsigned char k, frame, held, pressed;
 const unsigned char *key_queue;         /* display_gui.c's menu: keys for the game, one a call */
 
@@ -66,8 +65,7 @@ static unsigned char key(void)
         return '*';
     case G_HELP:
     case '?':
-        if (on_title)
-            return K_HELP;
+        return K_HELP;
     }
     return k >= ' ' && k < 0x60 ? k : 0;    /* not GEOS's control codes: F1 is 1 */
 }

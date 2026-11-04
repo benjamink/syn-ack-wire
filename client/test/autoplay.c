@@ -6,6 +6,7 @@
  * the monitor commands that save screen memory to a file. On a PC (make pc-apple2) it calls pc_dump()
  * instead, which saves the screen array; on the NES, where a BRK would only go to the IRQ handler, it
  * calls test/nes_dump.c's, which the emulator watches (tools/nes.lua). */
+#include <string.h>
 #include "../src/platform.h"
 #include "../src/common/game.h"
 
@@ -47,6 +48,13 @@ static const unsigned char clicks[][4] = {
     { 15, 5, 1, 0 }, { 15, 5, 0, 0 }, { 60, 28, 1, 0 }, { 60, 28, 0, 0 },   /* Quit to DeskTop */
 };
 static unsigned char clicked;
+/* The instruction pages mid-game, once, after the history and before Quit, opened while another seat
+ * plays: a dump before each key; after the first page they stay up until the game logs something new
+ * (or about a minute: 200 key times), so it goes on under them; closed, a dump of the game as it went on
+ * meanwhile, the new line in the log (K_DOWN: the log is at its newest already). */
+static const unsigned char midhelp[] = { K_HELP, '>', '>', '>', '>', '>', '>', '>', '>', '>', '>', '>', '>',
+                                         '<', '<', '<', '<', '<', '<', K_ESC, K_DOWN, 0 };
+static unsigned char helped, seen[8], waits;
 extern const unsigned char *key_queue;      /* src/geos/input.c */
 #define SCROLL_NOW (clicked == QUIT_AT)
 #elif defined(__CC65__) && !defined(__NES__)
@@ -106,7 +114,17 @@ unsigned char auto_key(void)
     }
 #endif
 #ifdef __GEOS__
-    if (dumps > 8 && clicked < sizeof clicks / sizeof clicks[0]) {
+    if (dumps > 8 && SCROLL_NOW && midhelp[helped] && (helped || (turn != NONE && !pr_kind))) {
+        if (!helped)
+            memcpy(seen, log_line(0), sizeof seen);
+        else if (helped == 1 && waits < 200 && !memcmp(seen, log_line(0), sizeof seen)) {
+            ++waits;
+            return 0;
+        }
+        DUMP();
+        return midhelp[helped++];
+    }
+    if (dumps > 8 && clicked < sizeof clicks / sizeof clicks[0] && (!SCROLL_NOW || !midhelp[helped])) {
         r = gui_poll(0, clicks[clicked][0], clicks[clicked][1], clicks[clicked][2]);
         if (clicks[clicked++][3])
             DUMP();
