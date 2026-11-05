@@ -1250,9 +1250,9 @@ digital rain, circuit board and a wireframe globe on a grid floor. `gfx_art` unp
 pens of the logo's rim and snow turn (colour cycling), so a light runs round the letters and the snow twinkles. The buttons and panels
 use pens the picture leaves alone; the game's palette comes back when play starts.
 
-A stock A500 with Kickstart and Workbench 1.3 or later, 512 KB, the FujiNet on the serial port. This is step 2 of
-the Amiga client (`docs/superpowers/specs/2026-11-01-amiga-client-design.md`): the game plays on the circuit-board
-graphics, by mouse or keyboard; menus, the Region list, palette effects and instruction pages are step 3. The screen's title bar is hidden (`ShowTitle`), or row 0 would lie under it on NTSC.
+A stock A500 with Kickstart and Workbench 1.3 or later, 512 KB, the FujiNet on the serial port. The game plays on the
+circuit-board graphics, by mouse or keyboard, with menus, the Region list, palette effects and the instruction pages.
+The screen's title bar is hidden (`ShowTitle`), or row 0 would lie under it on NTSC.
 
 - **Build:** `make amiga` gives `build/amiga/syn-ack-wire-amiga`. Needs `m68k-amigaos-gcc` (`AMIGA_BIN`, default
   `/opt/amiga/bin`) and the prebuilt fujinet-nio-lib (`make -C $FUJINET_NIO_LIB amiga`; the library is read, never changed).
@@ -1265,7 +1265,7 @@ graphics, by mouse or keyboard; menus, the Region list, palette effects and inst
 - **Network:** `fujinet-nio.device` must already be loaded (`fujinet-load-resident`, from the user's startup). Replies
   are read in pieces of at most 128 bytes, polled about ten times a second while quiet; a dead line is reported after a
   3 second grace, and the common code redials with the seat token.
-- **Keys:** F1 or Help or `?` the instructions (six pages, with a QR code to the manual), F2 move hints, F3 sound, F4 seats as cards or as a table (a click on the seats does the same; PAL shows every netrunner with a header of syndicate letters, NTSC three rows: you, the seat to move, and the others one at a time under the arrows; not kept between runs), Return, Backspace,
+- **Keys:** F1 or Help or `?` the instructions (eleven pages, with a QR code to the manual), F2 move hints, F3 sound, F4 seats as cards or as a table (a click on the seats does the same; PAL shows every netrunner with a header of syndicate letters, NTSC three rows: you, the seat to move, and the others one at a time under the arrows; not kept between runs), Return, Backspace,
   Delete, Esc; cursor left and right page. Amiga-key chords are left to the menus. The mouse: the left button presses a widget (a kit node plays it, a hive node or a syndicate chooses, Buy/Undo/Yes/No/OK and the steppers in the windows; on the title JACK-IN and the buttons); the right button is Cancel. A press is debounced so a double click never queues a flood of keys.
 - **A floppy to try it on real hardware:** `tools/make-amiga-adf.sh` writes `build/amiga/syn-ack-wire-amiga.adf` (OFS, not bootable): the game with its icon and `nio/` (the FujiNet NIO device and its loader; `FUJINET_NIO_ADF_WB` picks the Workbench's files, default `wb204`); there is no `Start` script, so load the device yourself first. Boot your Workbench and open the disk. `tools/make_icon.py` draws the icons.
 - **Server:** the public one is built in (`make amiga URL=N:TCP://host:port/` builds for another). A player can point the client elsewhere without rebuilding: a line `SERVER=TCP://host:port/` in `S:SynAckWire.prefs` (an `N:` in front is accepted; an address that is not `TCP://` or is over 60 characters is ignored) is dialled instead, and kept when the handle is saved. Run your own server with `cd server && python3 -u serve.py --host 127.0.0.1 --port 6599 --trace`. On the rig, `AMIGA_PREFS_SERVER=TCP://127.0.0.1:6599/` writes that line first; the acceptance scripts take `USE_PREFS=1 URLPORT=6598` to build for a port nothing listens on and find the scratch server only through the prefs file.
