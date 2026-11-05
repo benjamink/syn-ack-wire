@@ -62,7 +62,7 @@ $(NIO_ARCHIVE):
 	else echo "NIO package or checkout missing: $(NIO_LIB)" >&2; exit 1; fi
 ifeq ($(NIO),1)
 CFLAGS += -DNIO_BUILD=1
-NET     = $(B)/net_nio.o $(B)/net_nio_appkey.o $(B)/net_nio_sound.o $(B)/ring.o
+NET     = $(B)/net_nio.o $(B)/net_nio_appkey.o $(B)/ring.o
 CFLAGS += -I $(NIO_LIB)/include
 NETLIB  = $(NIO_ARCHIVE)
 else

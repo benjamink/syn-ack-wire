@@ -7,7 +7,7 @@
 #include <fn_raw.h>
 #include <fn_protocol.h>
 
-unsigned char rx_ring[256], net_hush, nio_test_clock;
+unsigned char rx_ring[256], nio_test_clock;
 static unsigned char read_data[256], read_flags, read_result, proc, write_result;
 static unsigned int read_len, write_calls, read_calls, last_read_cap;
 static unsigned long seen_read_offset, seen_write_offset;
@@ -17,7 +17,6 @@ static unsigned char appkey_mode;
 static unsigned char pbi, hsio_result, device_result, disk_result;
 static unsigned char set_calls, device_calls, disk_calls, get_calls, get_result, speed = 4;
 static unsigned char last_index;
-void nio_after(void) {}
 uint8_t fn_atari_u1mb_pbi(void) { return pbi; }
 uint8_t fn_fuji_get_hsio(uint8_t *index) { ++get_calls; if (get_result) return get_result; *index = speed; return FN_OK; }
 uint8_t fn_fuji_set_hsio(uint8_t index) { ++set_calls; last_index = index; return hsio_result; }
