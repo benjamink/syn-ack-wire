@@ -58,6 +58,12 @@
 #define QUIT_ASK "QUIT TO DOS? Y/N"
 #endif
 
+/* 1 = the title screen picks the server (the region) itself: K_REGION hangs up and calls
+ * region_pick(), then dials region_url(), not URL (geos: its region panel). */
+#ifndef REGION_PICK
+#define REGION_PICK 0
+#endif
+
 /* What game.c says when it refuses an answer itself, on the question line.
  * NARROW_SAYS=1 words it for a narrower one (nes: 26 columns beside the clock),
  * and names START, the NES's Return. Any one can also be set on its own (adam:

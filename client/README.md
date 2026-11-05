@@ -106,6 +106,7 @@ The 8-bit side. The server enforces every rule; the client draws what it is told
 | `src/geos/input.c` | GEOS on the Atari: keys from GEOS's keyboard queue, the pointer for the menus, OPTION and SELECT from CONSOL, `ticks()`, quitting to the DeskTop |
 | `src/geos/draw.s` | GEOS on the Atari: `display_gui.c`'s drawing helpers in assembly (areas, panels, text put together and drawn, numbers), and the tables of a screen's fixed panels and labels |
 | `src/geos/sig.s` | GEOS on the Atari: what the places drawn often show, as 16-bit signatures, so they're drawn again only when that changes |
+| `src/geos/region.c` | GEOS on the Atari: the region panel on the title (START, or a click on REGION): each server's region, pace and seats taken (GET /SEATS), Refresh, and the one picked dialled |
 | `src/geos/help.c` | GEOS on the Atari: the instruction pages from the title, a GEOS file on the disk found by its class, a page a record |
 | `src/geos/memset.s`, `ring.s` | GEOS on the Atari: a `memset` in place of geos-cbm.lib's (see below); `rx_ring` at $0400 |
 | `tools/run-geos-disks.sh` | Plays the GEOS client as a player would: atari800 (PAL 130XE) boots `make geos-atr`'s two disks from FujiNet-PC, GEOS in D1:, the GEOS disk in D2:, joystick on for the pointer |
@@ -980,10 +981,27 @@ make geos-atr GEOS_ATARI=../../geos-atari                  # the two disks below
     the background screen is in a 130XE bank at $6000, beside the kernal's drawing code, so only the kernal's calls
     reach it, not a copy of main memory's $6000; the title art, which `display_gui.c` writes itself, can't, so a whole
     new screen under the pages (a game over: the title) is drawn when they close.
-  - **The turn clock lags under them:** geos-atari's frame interrupt counts every frame (`jiffyCounter`) but skips
-    the programs' hook (`intTopVector`, where `frame.s` ticks) while its kernal bank is in, for each drawing call and
-    disk read; a page turn reads the disk, so a minute's clock showed 54 s left after 19 s with the pages up. The
-    server's clock is the real one.
+- **The region,** on the title: its name is framed with an arrow, a GEOS pop-up, with START beside it (STATUS
+  and HANDLE a line lower for the frame); START, or a click on that line, opens a panel over it (`region.c`, `REGION_PICK`). It
+  lists each server fly.io runs (`regions_tab.h`, from `server/servers.fly.toml` by `tools/gen_regions.py c`, as the
+  desktop client's Region menu): its number, region, pace, and the seats taken at its table out of the seats there,
+  as the FujiNet lobby's PLAYERS column has them. Those come from the servers' web page, `GET /SEATS` over plain
+  HTTP (port 80), read with N1 while it is free: opening the panel hangs up the title's connection (`main.c`,
+  `K_REGION`), and a pick, or Esc, dials again. **1**-**4** or a click on its line picks a region, **R** or Refresh
+  reads the seats again, Esc or Cancel keeps the one there was. The title shows the name picked while it dials; the
+  server's own `a` message follows. It starts at the first region (the old built-in URL's) every time. A test
+  build gives `REGIONS="--config FILE --host localhost --seats-port N"`: a servers file of its own (with no
+  `[lobby]`, so nothing is listed) for `serve.py --config`.
+- **Ticks** are GEOS's own frame count (`jiffyCounter`), not ours: geos-atari's frame interrupt counts every frame
+  but skips the programs' hook (`intTopVector`, where `frame.s` counted) while its kernal bank is in, for each
+  drawing call, disk read and such calls as `GetNextChar`. A loop of those lost two frames in three (the turn clock
+  under the instruction pages showed 54 s left after 19). `frame.s` takes the counter's address from the `INC` in
+  GEOS's NMI handler (`$FFFA`), so it doesn't depend on a build of geos-atari, and keeps its own count should that
+  not be there.
+- **Memory:** the program has $0500-$7DFF and its stack $7E00-$7FFF. cc65 keeps $6000-$7FFF for GEOS's
+  background screen (`__BACKBUFSIZE__`), but on geos-atari that is in a 130XE bank; filling $6300-$7DFF and playing
+  a game (menus, the pages on the title and mid-game, Quit) left it untouched, so the link gives it to the program
+  (`GEOSLD`).
 - **The playfield:**
   - y 0-12, the menu bar: **file** (Log off, Quit to DeskTop), and the region and link on the right. No **geos**
     menu or About box, and no **options** menu: move hints and sound are on the title screen and OPTION and
@@ -1088,9 +1106,10 @@ make geos-atr GEOS_ATARI=../../geos-atari                  # the two disks below
 | `snow.s` | 74 | + 48 rodata (masks), 3 bss: the title's static, also from the deferred VBI |
 | `dli.s` | 133 | the color bands' DLI handler and its display list switch (117 before the title's purple) |
 | **geos** (2026-11-03, cc65 `geos-cbm`) | | |
-| `synack.cvt` | 17294 | whole GEOS file (header and directory entry included); loads at $0500, 4.6K bss to $58AC (17270 with the pages on the title only, 16488 before the instruction pages, 16345 before the bar was plain while nothing asks, 17185 with the options menu, 17801 with the helpers in C, 18345 with the About box, 18133 with the Atari's text title, 12138 with the text playfield too) |
-| `display_gui.c` | 6112 | the title and the playfield, the menu about 0.6K of it: + 1243 rodata (364 of title art; the fixed panels and labels), 1359 bss (the Atari font as a GEOS font, 714; what the menu covers, 481; the bar's two lines) |
+| `synack.cvt` | 19193 | whole GEOS file (header and directory entry included); loads at $0500, 4.6K bss to $602C, the stack at $7E00 (19023 before the region's frame and START label, 17294 before the region panel, 17270 with the pages on the title only, 16488 before the instruction pages, 16345 before the bar was plain while nothing asks, 17185 with the options menu, 17801 with the helpers in C, 18345 with the About box, 18133 with the Atari's text title, 12138 with the text playfield too) |
+| `display_gui.c` | 6379 | the title and the playfield, the menu about 0.6K of it: + 1243 rodata (364 of title art; the fixed panels and labels), 1359 bss (the Atari font as a GEOS font, 714; what the menu covers, 481; the bar's two lines) |
 | `help.c` | 365 | + 49 rodata, 984 bss (a page, 960): the instruction pages, read with GEOS's file calls (about 70 bytes of geos-cbm.lib's); `screen.s` draws them (138) |
+| `region.c` | 1130 | + 318 rodata (the regions, their paces and devicespecs), 17 bss: the region panel, GET /SEATS and its parsing |
 | `draw.s` | 1082 | + 65 bss (`buf`, the pen): the drawing helpers (1,668 less in `display_gui.c`) and the fixed parts' tables' loops |
 | `sig.s` | 109 | + 35 bss: the places' signatures |
 | `screen.s` | 83 | + 1K bss, the ROM's font, copied with ANTIC's DMA off (24 of it; 384 when it drew the text title too) |

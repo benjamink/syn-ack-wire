@@ -68,7 +68,11 @@ static unsigned char dial(void)
         return net_open((const char *)rx_ring);
     }
 #endif
+#if REGION_PICK
+    return net_open(region_url());
+#else
     return net_open(URL);
+#endif
 }
 
 /* Title: type a handle, Return to jack in. While the player types, the status
@@ -80,6 +84,9 @@ static void title(void)
     if (!link_up)
         status_len = status_code = 0;
     display_title_screen();
+#if REGION_PICK
+ring:
+#endif
 #ifdef NIO_BUILD
     if (restore_sio_on_title) {
         (void)net_nio_restore_sio();
@@ -132,6 +139,16 @@ static void title(void)
             }
             display_title_screen();     /* any other key: the title as it was */
             continue;
+        }
+#endif
+#if REGION_PICK
+        if (c == K_REGION) {            /* hang up, pick, dial the one picked */
+            if (link_up)
+                net_close();
+            link_up = status_len = status_code = 0;
+            region_pick(in_key);
+            display_title_screen();
+            goto ring;
         }
 #endif
         if (c == K_OPTION)

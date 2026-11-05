@@ -68,9 +68,12 @@ void screen_init(void);                 /* screen.s: the font, IRQs masked */
 #define T_Y     (ART_Y + 8 * (TITLE_END - 1) + 4)   /* REGION; STATUS, HANDLE 10 apart */
 #define T_X     40                      /* the labels */
 #define T_VAL   96                      /* what they say */
+#define R_FRAME (T_VAL + 96)            /* the region's frame's right edge */
+#define R_ARROW (R_FRAME - 7)           /* its arrow's middle */
 
 unsigned char romfont[8 + 2 * 97 + 8 * 64];   /* (draw.s draws with it) */
-static unsigned char gui_ready, gui_on, on_title;
+static unsigned char gui_ready, gui_on;
+unsigned char on_title;                 /* input.c: START picks the region there */
 static unsigned char hold, missed;     /* a menu is open: drawing waits; something did */
 static unsigned char menu = 0xFF, item = 0xFF, was_down;   /* the menu's open (0), its item */
 static unsigned char i, j, n, v;
@@ -176,11 +179,11 @@ static unsigned char borrowed;          /* the prompt's subject is on the log's 
  * waits for the player: a prompt, Esc's Y/N, the title's handle, or a message that asks (a '?'). */
 static unsigned char asking;            /* set where the question comes or goes */
 
-/* An arrow 7 wide at the log panel's right, its point up or down. */
-static void arrow(unsigned char y, unsigned char up)
+/* An arrow 7 wide, centred on x, its point up or down: the log panel's, and the title's region. */
+static void arrow(unsigned char y, unsigned x, unsigned char up)
 {
     for (j = 0; j < 4; ++j)
-        box(y + (up ? j : 3 - j), y + (up ? j : 3 - j), 306 - j, 306 + j, P_BLACK);
+        box(y + (up ? j : 3 - j), y + (up ? j : 3 - j), x - j, x + j, P_BLACK);
 }
 
 /* The log's lines from the history, log_back lines back, then the arrows that step
@@ -203,8 +206,8 @@ static void log_lines(void)
         if (asking)
             invert(LY + 16, BAR_TOP - 1, 4, 314);
     }
-    arrow(LY + 3, 1);
-    arrow(LY + 11, 0);
+    arrow(LY + 3, 306, 1);
+    arrow(LY + 11, 306, 0);
     if (log_back) {
         bp = buf;
         put('^');
@@ -688,17 +691,20 @@ void display_title_update(void)
         return;
     bp = buf;
     textn(region, region_len);
-    field(S_REGION, T_Y);
+    if (fresh_buf(S_REGION)) {          /* inside its frame, left of the arrow */
+        box(T_Y - 1, T_Y + 8, T_VAL - 3, R_ARROW - 6, P_WHITE);
+        show(T_VAL, T_Y);
+    }
     bp = buf;
     if (status_len)
         textn(status_text, status_len - 1);
     else if (status_code == NO_CARRIER)
         text("NO CARRIER");
-    field(S_STATUS, T_Y + 10);
+    field(S_STATUS, T_Y + 11);
     bp = buf;
     textn(edit, edit_len);
     put(' ' | 0x80);                    /* the cursor */
-    field(S_HANDLE, T_Y + 20);
+    field(S_HANDLE, T_Y + 21);
     bp = buf;
     text("MOVE HINTS ");
     on_off(hints);
@@ -711,10 +717,11 @@ void display_title_update(void)
 
 static const struct label title_labels[] = {
     { "REGION", T_X, T_Y, SET_BOLD },
-    { "STATUS", T_X, T_Y + 10, SET_BOLD },
-    { "HANDLE", T_X, T_Y + 20, SET_BOLD },
+    { "STATUS", T_X, T_Y + 11, SET_BOLD },  /* a line lower: room for the region's frame */
+    { "HANDLE", T_X, T_Y + 21, SET_BOLD },
     { "OPTION", T_X, T_Y + 33, L_INV }, /* the keys; not bold, which would overhang the inverse */
     { "SELECT", T_X, T_Y + 43, L_INV },
+    { "START", R_FRAME + 8, T_Y, L_INV },   /* the region panel (region.c), as a click on it */
     { 0 }
 };
 
@@ -723,6 +730,11 @@ static void title_paint(void)
     panel(14, 197, 3, 315);
     art();
     labels(title_labels);
+    box(T_Y - 2, T_Y - 2, T_VAL - 4, R_FRAME, P_BLACK);   /* the region, framed, with an arrow: */
+    box(T_Y + 9, T_Y + 9, T_VAL - 4, R_FRAME, P_BLACK);   /* a GEOS pop-up, START or a click */
+    box(T_Y - 2, T_Y + 9, T_VAL - 4, T_VAL - 4, P_BLACK);
+    box(T_Y - 2, T_Y + 9, R_FRAME, R_FRAME, P_BLACK);
+    arrow(T_Y + 2, R_ARROW, 0);
     display_title_update();
 }
 
@@ -818,6 +830,18 @@ static void refresh(void)
  * in a 130XE bank at $6000, beside the kernal's drawing code, so only the kernal's own calls reach
  * it; the title art, which this file writes into the screen itself, can't. So a whole new screen
  * under the pages (a game over: the title) waits, and is drawn when they close. */
+/* region.c's panel: drawing behind it waits (it draws the title again after), and a click comes
+ * from gui_poll() as K_CLICK, at gui_x, gui_y. */
+#define K_CLICK 0x04
+static unsigned char held;
+unsigned gui_x;
+unsigned char gui_y;
+
+void __fastcall__ gui_hold(unsigned char on)
+{
+    hold = held = on;
+}
+
 static void take(void);
 static struct window whole = { 0, 199, 0, 319 };
 static unsigned char redraw;            /* a new screen came under the pages */
@@ -945,6 +969,15 @@ unsigned char __fastcall__ gui_poll(unsigned char k, unsigned x, unsigned char y
         return k;
     if (helping)                        /* the pages: left third back, right third on */
         return click ? (x < 107 ? '<' : x >= 213 ? '>' : K_ESC) : k;
+    if (held) {
+        if (!click)
+            return k;
+        gui_x = x;
+        gui_y = y;
+        return K_CLICK;
+    }
+    if (click && on_title && y >= T_Y - 1 && y < T_Y + 8 && x >= T_X && x < 240)   /* REGION */
+        return K_REGION;
     if (menu != 0xFF) {
         m = 0xFF;                       /* the item under the pointer */
         if (x && x < M_RIGHT && y >= 14 && y < M_BOT - 1)

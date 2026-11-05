@@ -2,11 +2,12 @@
  * keyboard queue (GetNextChar), which geos-atari's driver fills from the
  * keyboard interrupt: unshifted letters arrive in lowercase, Esc as GEOS's
  * left arrow, Shift-Delete as backspace, and OPTION held with a key sets its
- * bit 7 (the shortcut key, C= on a C64). OPTION and SELECT on their own are read
- * from CONSOL once a frame, as on the Atari: OPTION flips the move hints,
- * SELECT the sound. The ticks are frame.s's. ? and HELP (GEOS's pound sign) open the
- * instruction pages (help.c), on the title or mid-game; CTRL+* (GEOS's right arrow) comes as *, the
- * pages' next, as CTRL++ (its left, which is its backspace) comes as Delete.
+ * bit 7 (the shortcut key, C= on a C64). OPTION, SELECT and START on their own
+ * are read from CONSOL once a frame, as on the Atari: OPTION flips the move hints,
+ * SELECT the sound, START on the title picks the region (region.c). ticks() is
+ * frame.s's. ? and HELP (GEOS's pound sign) open the instruction pages (help.c),
+ * on the title or mid-game; CTRL+* (GEOS's right arrow) comes as *, the pages'
+ * next, as CTRL++ (its left, which is its backspace) comes as Delete.
  *
  * The game loops call in_key() on every pass. It is where the keyboard's IRQ
  * may come in: the program runs with IRQs masked (screen.s says why), and a
@@ -40,6 +41,7 @@ unsigned char __fastcall__ gui_poll(unsigned char k, unsigned x, unsigned char y
                                            mouseData: its driver sets that only on a change */
 void frame_done(void);                  /* frame.s */
 extern volatile unsigned char geos_tick;
+extern unsigned char on_title;          /* display_gui.c */
 
 static unsigned char k, frame, held, pressed;
 const unsigned char *key_queue;         /* display_gui.c's menu: keys for the game, one a call */
@@ -77,7 +79,7 @@ unsigned char in_key(void)
     __asm__ ("sei");
     if (frame != geos_tick) {
         frame = geos_tick;
-        k = ~CONSOL & 6;                /* OPTION, SELECT */
+        k = ~CONSOL & 7;                /* OPTION, SELECT, START */
         pressed = k & ~held;
         held = k;
         if (pressed & 2) {
@@ -86,6 +88,8 @@ unsigned char in_key(void)
         }
         if (pressed & 4)
             return K_OPTION;
+        if (pressed & 1 && on_title)
+            return K_REGION;
     }
     if (key_queue) {
         k = *key_queue++;
@@ -96,10 +100,6 @@ unsigned char in_key(void)
     return gui_poll(key(), mouseXPos, mouseYPos, !(TRIG0 & 1));
 }
 
-unsigned char ticks(void)
-{
-    return geos_tick;
-}
 
 unsigned char ticks_per_sec(void)
 {

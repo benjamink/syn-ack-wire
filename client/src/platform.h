@@ -59,4 +59,11 @@ void snd_toggle(void);                  /* sound on/off; on plays CHORD_HIVE */
 void platform_quit(void);               /* the machine as it was found, and the program ends */
 #endif
 
+#if REGION_PICK
+#define K_REGION 0x03                   /* on the title: pick the region (geos: START, or a click on it) */
+void __fastcall__ region_pick(unsigned char (*key)(void));   /* hung up: the player picks a region, or
+                                        keeps it; keys from key(), the title's in_key() */
+const char *region_url(void);           /* the devicespec to dial it */
+#endif
+
 #endif

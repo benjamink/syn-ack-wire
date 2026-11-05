@@ -23,6 +23,11 @@ static unsigned elapsed;
 #define AUTO_HANDLE "ATARI"
 #endif
 static const char name[] = AUTO_HANDLE "\r";
+#if REGION_PICK
+/* on the title, the region panel: open it, read the seats again, pick the second region (and play there) */
+static const unsigned char regioning[] = { K_REGION, 'R', '2', 0 };
+static unsigned char regioned;
+#endif
 /* first, the help pages: open, page to the end (extra presses are ignored), back one, leave */
 #ifdef __GEOS__     /* 11 pages, one press past the last; OPTION twice: dumps of the title drawn again */
 static const unsigned char paging[] = { K_HELP, '>', '>', '>', '>', '>', '>', '>', '>', '>', '>', '>', '<',
@@ -129,6 +134,13 @@ unsigned char auto_key(void)
         if (clicks[clicked++][3])
             DUMP();
         return r;
+    }
+#endif
+#if REGION_PICK
+    if (regioning[regioned]) {                      /* the region panel first: a dump before each key */
+        if (DUMP_TICKS)
+            DUMP();
+        return regioning[regioned++];
     }
 #endif
     if (paging[paged]) {                            /* a dump before each key shows each page */

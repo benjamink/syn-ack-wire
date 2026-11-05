@@ -593,9 +593,9 @@ intv-auto:
 # (src/geos/memset.s): geos-cbm.lib's is GEOS's FillRam, whose arguments differ.
 GEOS    = build/geos
 GEOSFLAGS = -t geos-cbm -O -Or -Cl -DDISPLAY_IDLE=1 -DFANCY_TITLE=1 -DFANCY_PLAYFIELD=1 -DLOG_HISTORY=16 \
-            -DQUIT_TO_OS=1 -DQUIT_ASK='"QUIT TO GEOS? Y/N"' -DHELP_CLASS='"$(GEOSHELPCLASS)"'
+            -DQUIT_TO_OS=1 -DQUIT_ASK='"QUIT TO GEOS? Y/N"' -DHELP_CLASS='"$(GEOSHELPCLASS)"' -DREGION_PICK=1
 GEOSOBJ = $(addprefix $(GEOS)/,header.o main.o game.o proto.o display_gui.o draw.o sig.o input.o screen.o \
-          frame.o net_sio.o sound.o ring.o memset.o help.o)
+          frame.o net_sio.o sound.o ring.o memset.o help.o region.o)
 GEOSNAME = $(shell sed -n 's/^\#define TH_TITLE "\(.*\)"/\1/p' src/common/theme_tab.h)
 # The instruction pages, as a GEOS file on the GEOS disk (tools/help_geos.py): the Atari's pages, its QR code's
 # URL. The game finds the file by its class (at most 12 characters), so the name (16) is only what the DeskTop shows.
@@ -608,6 +608,16 @@ $(GEOS):
 $(GEOS)/%.s: src/common/%.c $(HDRS) | $(GEOS)
 	$(CC) $(GEOSFLAGS) $(DEFS) -o $@ $<
 $(GEOS)/display_gui.s: src/atari/title_art.h
+# The link: on geos-atari, GEOS's background screen is in a 130XE bank (beside its kernal's drawing code), not in main
+# memory at $6000-$7FFF as on a C64, so that is the program's too (__BACKBUFSIZE__=0): the C stack goes to $7E00.
+GEOSLD ?= -D __BACKBUFSIZE__=0
+# The region panel's list (src/geos/region.c), from the servers fly.io runs (tools/gen_regions.py). A test build
+# gives its own: REGIONS="--config FILE --host localhost --seats-port N" (servers on this machine; no [lobby] in it).
+REGIONS ?=
+$(GEOS)/regions_tab.h: ../server/servers.fly.toml ../fly.toml ../tools/gen_regions.py Makefile | $(GEOS)
+	python3 ../tools/gen_regions.py c $(REGIONS) > $@
+$(GEOS)/region.s: src/geos/region.c $(GEOS)/regions_tab.h $(HDRS) | $(GEOS)
+	$(CC) $(GEOSFLAGS) $(DEFS) -I $(GEOS) -o $@ $<
 $(GEOS)/%.s: src/geos/%.c $(HDRS) | $(GEOS)
 	$(CC) $(GEOSFLAGS) $(DEFS) -o $@ $<
 $(GEOS)/net_sio.o $(GEOS)/sound.o: $(GEOS)/%.o: src/atari/%.s | $(GEOS)
@@ -623,7 +633,7 @@ $(GEOS)/header.grc: src/common/theme_tab.h Makefile | $(GEOS)
 $(GEOS)/header.s: $(GEOS)/header.grc
 	grc65 -s $@ $<
 $(GEOS)/synack.cvt: $(GEOSOBJ)
-	$(LD) -t geos-cbm -S 0x0500 -D __STACKSIZE__=0x200 -m $(GEOS)/synack.map -Ln $(GEOS)/synack.lbl -o $@ $(GEOSOBJ) geos-cbm.lib
+	$(LD) -t geos-cbm -S 0x0500 -D __STACKSIZE__=0x200 $(GEOSLD) -m $(GEOS)/synack.map -Ln $(GEOS)/synack.lbl -o $@ $(GEOSOBJ) geos-cbm.lib
 	@echo "$@: $$(stat -c %s $@) bytes"
 geos: $(GEOS)/synack.cvt
 # The disks, from a geos-atari checkout (GEOS_ATARI) and its SIO build for D2: (make -C $(GEOS_ATARI)
@@ -654,7 +664,7 @@ $(GEOS)/autoplay.s: test/autoplay.c $(HDRS) | $(GEOS)
 	$(CC) $(GEOSFLAGS) $(DEFS) -DAUTO_HANDLE='"GEOS"' -o $@ $<
 GEOSAUTO = $(GEOS)/autoplay.o $(GEOS)/main-auto.o $(filter-out $(GEOS)/main.o,$(GEOSOBJ))
 $(GEOS)/synack-auto.cvt: $(GEOSAUTO)
-	$(LD) -t geos-cbm -S 0x0500 -D __STACKSIZE__=0x200 -m $(GEOS)/synack-auto.map -Ln $(GEOS)/synack-auto.lbl -o $@ $(GEOSAUTO) geos-cbm.lib
+	$(LD) -t geos-cbm -S 0x0500 -D __STACKSIZE__=0x200 $(GEOSLD) -m $(GEOS)/synack-auto.map -Ln $(GEOS)/synack-auto.lbl -o $@ $(GEOSAUTO) geos-cbm.lib
 
 # --- the Apple II display (src/apple2/display_text.c) on a PC, playing by itself and saving its screen at each
 # new prompt: the manual's captures (tools/capture.sh with PLATFORM=apple2). build/pc/pc-apple2 [host] [port]
