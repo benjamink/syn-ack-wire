@@ -3,7 +3,7 @@
 #include <string.h>
 #include "../src/platform.h"
 #include "../src/amiga/keys.h"
-#include "../src/amiga/regions_tab.h"
+#include "regions_tab.h"
 #include "../src/amiga/menudef.h"
 
 static int ran, failures;

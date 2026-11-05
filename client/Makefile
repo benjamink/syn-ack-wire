@@ -722,7 +722,8 @@ FUJINET_NIO_WS ?= $(HOME)/dev/fujinet-nio-workspace
 FUJINET_NIO_LIB ?= $(FUJINET_NIO_WS)/repos/fujinet-nio-lib
 AMIGA_CC        = $(AMIGA_BIN)/m68k-amigaos-gcc
 AMIGA_FLAGS     = -Os -Wall -mcpu=68000 -msoft-float -mcrt=nix13 -funsigned-char -D__fastcall__= -D__KICK13__ \
-                  -I$(FUJINET_NIO_LIB)/include -I$(FUJINET_NIO_WS)/repos/fujinet-nio-driver/amiga/include
+                  -I$(FUJINET_NIO_LIB)/include -I$(FUJINET_NIO_WS)/repos/fujinet-nio-driver/amiga/include \
+                  -I$(AMIGA_B)
 AMIGA_NIOLIB    = $(FUJINET_NIO_LIB)/build/fujinet-nio-amiga.a
 
 $(AMIGA_NIOLIB):
@@ -743,18 +744,18 @@ $(AMIGA_B)/gfxdemo: test/amiga/gfxdemo.c src/amiga/gfx.c src/amiga/layout.c $(wi
 AMIGASRC = src/common/main.c src/common/game.c src/common/proto.c \
            $(addprefix src/amiga/,net_fn.c input.c keys.c layout.c ui.c gfx.c pointer.c dialog.c display_gfx.c help.c menudef.c menus.c start.c sound.c sndlogic.c prefs.c prefs_io.c palcycle.c title_art.c)
 AMIGADEFS = -DFANCY_TITLE=1 -DFANCY_PLAYFIELD=1 -DDISPLAY_IDLE=1 -DTITLE_IDLE=1 -DQUIT_TO_OS=1 -DQUIT_ASK='"QUIT? Y/N"' -Wno-main $(AMIGA_XDEFS)   # AMIGA_XDEFS: extras for one build, e.g. -DDRAWLOG
-$(AMIGA_B)/syn-ack-wire-amiga: $(AMIGASRC) $(HDRS) $(wildcard src/amiga/*.h) src/amiga/help_tab.h src/amiga/regions_tab.h $(AMIGA_NIOLIB) | $(AMIGA_B)
+$(AMIGA_B)/syn-ack-wire-amiga: $(AMIGASRC) $(HDRS) $(wildcard src/amiga/*.h) src/amiga/help_tab.h $(AMIGA_B)/regions_tab.h $(AMIGA_NIOLIB) | $(AMIGA_B)
 	$(AMIGA_CC) $(AMIGA_FLAGS) $(DEFS) $(AMIGADEFS) $(AMIGASRC) $(AMIGA_NIOLIB) -o $@
 	@echo "$@: $$(stat -c %s $@) bytes"
 amiga: $(AMIGA_B)/syn-ack-wire-amiga
 # the autoplay build: plays by itself (make amiga-test URL=N:TCP://127.0.0.1:6599/), no screen dumps
-$(AMIGA_B)/synack-amiga-auto: $(AMIGASRC) test/autoplay.c test/amiga_dump.c $(HDRS) $(wildcard src/amiga/*.h) src/amiga/help_tab.h src/amiga/regions_tab.h $(AMIGA_NIOLIB) | $(AMIGA_B)
+$(AMIGA_B)/synack-amiga-auto: $(AMIGASRC) test/autoplay.c test/amiga_dump.c $(HDRS) $(wildcard src/amiga/*.h) src/amiga/help_tab.h $(AMIGA_B)/regions_tab.h $(AMIGA_NIOLIB) | $(AMIGA_B)
 	$(AMIGA_CC) $(AMIGA_FLAGS) $(DEFS) $(AMIGADEFS) -DAUTOPLAY -DDUMP_TICKS=0 -DKEY_TICKS=6 -DAUTO_HANDLE='"AMIGA"' \
 	    $(AMIGASRC) test/autoplay.c test/amiga_dump.c $(AMIGA_NIOLIB) -o $@
 	@echo "$@: $$(stat -c %s $@) bytes"
 amiga-test: $(AMIGA_B)/synack-amiga-auto
 # the same, answering by mouse: every key the autoplayer would press for a prompt is a click on its widget
-$(AMIGA_B)/synack-amiga-mouse: $(AMIGASRC) test/autoplay.c test/amiga_autoclick.c test/amiga_dump.c $(HDRS) $(wildcard src/amiga/*.h) src/amiga/help_tab.h src/amiga/regions_tab.h $(AMIGA_NIOLIB) | $(AMIGA_B)
+$(AMIGA_B)/synack-amiga-mouse: $(AMIGASRC) test/autoplay.c test/amiga_autoclick.c test/amiga_dump.c $(HDRS) $(wildcard src/amiga/*.h) src/amiga/help_tab.h $(AMIGA_B)/regions_tab.h $(AMIGA_NIOLIB) | $(AMIGA_B)
 	$(AMIGA_CC) $(AMIGA_FLAGS) $(DEFS) $(AMIGADEFS) -DAUTOPLAY -DAUTOCLICK -DDUMP_TICKS=0 -DKEY_TICKS=6 -DAUTO_HANDLE='"AMIGA"' \
 	    $(AMIGASRC) test/autoplay.c test/amiga_autoclick.c test/amiga_dump.c $(AMIGA_NIOLIB) -o $@
 	@echo "$@: $$(stat -c %s $@) bytes"
@@ -805,12 +806,12 @@ test-amiga-sound: test/amiga_sound_test.c src/amiga/sndlogic.c src/amiga/sndlogi
 	    test/amiga_sound_test.c src/amiga/sndlogic.c
 	build/test/amiga_sound_test
 
-# the Region menu's servers, from the same file as the desktop client's
-src/amiga/regions_tab.h: ../server/servers.fly.toml ../fly.toml ../tools/gen_regions.py
+# the Region menu's servers, from the same file as the desktop client's: generated, not committed
+$(AMIGA_B)/regions_tab.h: ../server/servers.fly.toml ../fly.toml ../tools/gen_regions.py | $(AMIGA_B)
 	python3 ../tools/gen_regions.py h > $@
-test-amiga-menus: test/amiga_menus_test.c src/amiga/menudef.c src/amiga/menudef.h src/amiga/keys.h src/amiga/regions_tab.h
+test-amiga-menus: test/amiga_menus_test.c src/amiga/menudef.c src/amiga/menudef.h src/amiga/keys.h $(AMIGA_B)/regions_tab.h
 	mkdir -p build/test
-	gcc -g -std=gnu99 -Wall -Wno-main -funsigned-char -D__fastcall__= -o build/test/amiga_menus_test \
+	gcc -g -std=gnu99 -Wall -Wno-main -funsigned-char -D__fastcall__= -I$(AMIGA_B) -o build/test/amiga_menus_test \
 	    test/amiga_menus_test.c src/amiga/menudef.c
 	build/test/amiga_menus_test
 test-amiga-palcycle: test/amiga_palcycle_test.c src/amiga/palcycle.c src/amiga/palcycle.h
