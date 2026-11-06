@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The Amiga instruction pages as a C header, src/amiga/help_tab.h, compiled into the program.
+"""The Amiga instruction pages as a C header, build/amiga/help_tab.h (the Makefile's rule), compiled into the program.
 
 Usage:
     help_amiga.py [--qr URL] OUT.h HELP01.TXT HELP02.TXT ...

@@ -744,18 +744,18 @@ $(AMIGA_B)/gfxdemo: test/amiga/gfxdemo.c src/amiga/gfx.c src/amiga/layout.c $(wi
 AMIGASRC = src/common/main.c src/common/game.c src/common/proto.c \
            $(addprefix src/amiga/,net_fn.c input.c keys.c layout.c ui.c gfx.c pointer.c dialog.c display_gfx.c help.c menudef.c menus.c start.c sound.c sndlogic.c prefs.c prefs_io.c palcycle.c title_art.c)
 AMIGADEFS = -DFANCY_TITLE=1 -DFANCY_PLAYFIELD=1 -DDISPLAY_IDLE=1 -DTITLE_IDLE=1 -DQUIT_TO_OS=1 -DQUIT_ASK='"QUIT? Y/N"' -Wno-main $(AMIGA_XDEFS)   # AMIGA_XDEFS: extras for one build, e.g. -DDRAWLOG
-$(AMIGA_B)/syn-ack-wire-amiga: $(AMIGASRC) $(HDRS) $(wildcard src/amiga/*.h) src/amiga/help_tab.h $(AMIGA_B)/regions_tab.h $(AMIGA_NIOLIB) | $(AMIGA_B)
+$(AMIGA_B)/syn-ack-wire-amiga: $(AMIGASRC) $(HDRS) $(wildcard src/amiga/*.h) $(AMIGA_B)/help_tab.h $(AMIGA_B)/regions_tab.h $(AMIGA_NIOLIB) | $(AMIGA_B)
 	$(AMIGA_CC) $(AMIGA_FLAGS) $(DEFS) $(AMIGADEFS) $(AMIGASRC) $(AMIGA_NIOLIB) -o $@
 	@echo "$@: $$(stat -c %s $@) bytes"
 amiga: $(AMIGA_B)/syn-ack-wire-amiga
 # the autoplay build: plays by itself (make amiga-test URL=N:TCP://127.0.0.1:6599/), no screen dumps
-$(AMIGA_B)/synack-amiga-auto: $(AMIGASRC) test/autoplay.c test/amiga_dump.c $(HDRS) $(wildcard src/amiga/*.h) src/amiga/help_tab.h $(AMIGA_B)/regions_tab.h $(AMIGA_NIOLIB) | $(AMIGA_B)
+$(AMIGA_B)/synack-amiga-auto: $(AMIGASRC) test/autoplay.c test/amiga_dump.c $(HDRS) $(wildcard src/amiga/*.h) $(AMIGA_B)/help_tab.h $(AMIGA_B)/regions_tab.h $(AMIGA_NIOLIB) | $(AMIGA_B)
 	$(AMIGA_CC) $(AMIGA_FLAGS) $(DEFS) $(AMIGADEFS) -DAUTOPLAY -DDUMP_TICKS=0 -DKEY_TICKS=6 -DAUTO_HANDLE='"AMIGA"' \
 	    $(AMIGASRC) test/autoplay.c test/amiga_dump.c $(AMIGA_NIOLIB) -o $@
 	@echo "$@: $$(stat -c %s $@) bytes"
 amiga-test: $(AMIGA_B)/synack-amiga-auto
 # the same, answering by mouse: every key the autoplayer would press for a prompt is a click on its widget
-$(AMIGA_B)/synack-amiga-mouse: $(AMIGASRC) test/autoplay.c test/amiga_autoclick.c test/amiga_dump.c $(HDRS) $(wildcard src/amiga/*.h) src/amiga/help_tab.h $(AMIGA_B)/regions_tab.h $(AMIGA_NIOLIB) | $(AMIGA_B)
+$(AMIGA_B)/synack-amiga-mouse: $(AMIGASRC) test/autoplay.c test/amiga_autoclick.c test/amiga_dump.c $(HDRS) $(wildcard src/amiga/*.h) $(AMIGA_B)/help_tab.h $(AMIGA_B)/regions_tab.h $(AMIGA_NIOLIB) | $(AMIGA_B)
 	$(AMIGA_CC) $(AMIGA_FLAGS) $(DEFS) $(AMIGADEFS) -DAUTOPLAY -DAUTOCLICK -DDUMP_TICKS=0 -DKEY_TICKS=6 -DAUTO_HANDLE='"AMIGA"' \
 	    $(AMIGASRC) test/autoplay.c test/amiga_autoclick.c test/amiga_dump.c $(AMIGA_NIOLIB) -o $@
 	@echo "$@: $$(stat -c %s $@) bytes"
@@ -764,10 +764,10 @@ amiga-test-mouse: $(AMIGA_B)/synack-amiga-mouse
 # the Amiga client's look: the mockup generator is the source of the palette (src/amiga/palette.h), and draws the PNGs
 src/amiga/palette.h: tools/amiga_mock.py ../theme/theme.toml
 	python3 tools/amiga_mock.py --header > $@
-# the instruction pages (help/amiga/screen), compiled in; the QR code links to the Amiga manual by the fly.io short link
+# the instruction pages (help/amiga/screen), compiled in from build/amiga/help_tab.h (generated, not committed); the QR code links to the Amiga manual by the fly.io short link
 AMIGAHELP = $(sort $(wildcard help/amiga/screen/HELP*.TXT))
 AMIGA_QR_URL ?= HTTPS://SYN-ACK-WIRE.FLY.DEV/AMIGA
-src/amiga/help_tab.h: $(AMIGAHELP) tools/help_amiga.py tools/help_msdos.py tools/qr.py
+$(AMIGA_B)/help_tab.h: $(AMIGAHELP) tools/help_amiga.py tools/help_msdos.py tools/qr.py | $(AMIGA_B)
 	python3 tools/help_amiga.py --qr "$(AMIGA_QR_URL)" $@ $(AMIGAHELP)
 test-amiga-help:
 	python3 tools/test_help_amiga.py
